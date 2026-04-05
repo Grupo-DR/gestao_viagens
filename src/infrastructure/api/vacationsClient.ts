@@ -1,5 +1,5 @@
-import { API_CONFIG, AUTH_HEADERS } from './config.ts';
-import { ExternalVacationDTO } from '../../application/dtos/ExternalEmployeeDTO.ts';
+import { API_CONFIG, AUTH_HEADERS } from './config';
+import { ExternalVacationDTO } from '../../application/dtos/ExternalEmployeeDTO';
 
 /**
  * Cliente para consulta de férias no Protheus.
@@ -15,7 +15,7 @@ export const vacationsApiClient = {
 
     try {
       // RM SQL via Framework exige POST com parâmetros no body
-      const response = await fetch(`${API_CONFIG.RM_SQL_BASE_URL}/${API_CONFIG.SENTENCES.FERIAS}/0/P`, {
+      const response = await fetch(`${API_CONFIG.RM_SQL_BASE_URL}/VENCIMENTO_FER/0/P`, {
         method: 'POST',
         headers: AUTH_HEADERS,
         body: JSON.stringify({

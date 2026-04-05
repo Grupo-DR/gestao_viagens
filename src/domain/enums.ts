@@ -6,13 +6,10 @@
 
 /** Papéis de usuário no sistema */
 export enum UserRole {
-  MASTER = 'MASTER',             // Super Admin — acesso total + gestão de usuários
   ADMINISTRATIVO = 'ADMINISTRATIVO',
   CAPITAL_HUMANO = 'CAPITAL_HUMANO',
   COMPRADOR = 'COMPRADOR',
   GESTOR = 'GESTOR',
-  /** Usuário autenticado mas aguardando ativação pelo MASTER */
-  PENDENTE = 'PENDENTE',
 }
 
 /** Ciclo de vida de uma solicitação de viagem */

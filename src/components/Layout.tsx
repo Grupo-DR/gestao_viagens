@@ -1,17 +1,17 @@
 // ============================================================
 // PRESENTATION — Layout
-// Sidebar com RBAC completo: MASTER vê tudo + Gestão de Usuários.
-// Outros papéis veem apenas as abas autorizadas.
+// Lê identidade do IdentityContext (não via props).
+// switchRole usa o provider local — sem chamada Firestore.
 // ============================================================
 
 import React from 'react';
 import { UserRole } from '../domain/enums';
-import { useIdentity } from '../application/identity/IdentityContext.tsx';
-import { Plane, ShieldCheck, ShoppingCart, BarChart3, LogOut, User as UserIcon, Users, Shield } from 'lucide-react';
-import { cn } from '../lib/utils.ts';
+import { useIdentity } from '../application/identity/IdentityContext';
+import { Plane, ShieldCheck, ShoppingCart, BarChart3, LogOut, User as UserIcon, Settings } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 // ──────────────────────────────────────────────
-// Configuração do menu
+// Configuração do menu (roles que têm acesso a cada aba)
 // ──────────────────────────────────────────────
 
 const MENU_ITEMS = [
@@ -19,62 +19,39 @@ const MENU_ITEMS = [
     id: 'requests' as const,
     label: 'Solicitações',
     icon: Plane,
-    roles: [UserRole.MASTER, UserRole.ADMINISTRATIVO, UserRole.CAPITAL_HUMANO, UserRole.COMPRADOR, UserRole.GESTOR],
+    roles: [UserRole.ADMINISTRATIVO, UserRole.CAPITAL_HUMANO, UserRole.COMPRADOR, UserRole.GESTOR],
   },
   {
     id: 'validation' as const,
     label: 'Validação CH',
     icon: ShieldCheck,
-    roles: [UserRole.MASTER, UserRole.CAPITAL_HUMANO, UserRole.GESTOR],
+    roles: [UserRole.CAPITAL_HUMANO, UserRole.GESTOR],
   },
   {
     id: 'purchase' as const,
     label: 'Compras',
     icon: ShoppingCart,
-    roles: [UserRole.MASTER, UserRole.COMPRADOR, UserRole.GESTOR],
+    roles: [UserRole.COMPRADOR, UserRole.GESTOR],
   },
   {
     id: 'dashboard' as const,
     label: 'Dashboard',
     icon: BarChart3,
-    roles: [UserRole.MASTER, UserRole.GESTOR],
-  },
-  {
-    id: 'raiox' as const,
-    label: 'Gestão de Riscos',
-    icon: Users,
-    roles: [UserRole.MASTER, UserRole.ADMINISTRATIVO, UserRole.CAPITAL_HUMANO, UserRole.GESTOR],
-  },
-  {
-    id: 'usuarios' as const,
-    label: 'Gestão de Usuários',
-    icon: Shield,
-    roles: [UserRole.MASTER], // Exclusivo MASTER
+    roles: [UserRole.GESTOR],
   },
 ] as const;
 
 export type AppTab = (typeof MENU_ITEMS)[number]['id'];
 
 // ──────────────────────────────────────────────
-// Rótulos de papéis
+// Rótulos legíveis dos papéis para exibição
 // ──────────────────────────────────────────────
 
 const ROLE_LABELS: Record<UserRole, string> = {
-  [UserRole.MASTER]:         'Master',
   [UserRole.ADMINISTRATIVO]: 'Adm',
   [UserRole.CAPITAL_HUMANO]: 'CH',
-  [UserRole.COMPRADOR]:      'Comp.',
-  [UserRole.GESTOR]:         'Gestor',
-  [UserRole.PENDENTE]:       'Pendente',
-};
-
-const ROLE_COLORS: Record<UserRole, string> = {
-  [UserRole.MASTER]:         'bg-purple-100 text-purple-700',
-  [UserRole.ADMINISTRATIVO]: 'bg-blue-100 text-blue-700',
-  [UserRole.CAPITAL_HUMANO]: 'bg-emerald-100 text-emerald-700',
-  [UserRole.COMPRADOR]:      'bg-amber-100 text-amber-700',
-  [UserRole.GESTOR]:         'bg-slate-100 text-slate-600',
-  [UserRole.PENDENTE]:       'bg-orange-100 text-orange-700',
+  [UserRole.COMPRADOR]: 'Comp.',
+  [UserRole.GESTOR]: 'Gestor',
 };
 
 // ──────────────────────────────────────────────
@@ -88,111 +65,94 @@ interface LayoutProps {
 }
 
 export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
-  const { currentUser, logout } = useIdentity();
+  const { currentUser, switchRole, logout } = useIdentity();
 
-  if (!currentUser) return null;
-
+  // Filtra o menu de acordo com o papel atual
   const filteredMenu = MENU_ITEMS.filter((item) =>
-    (item.roles as readonly UserRole[]).includes(currentUser.role)
+    item.roles.includes(currentUser.role)
   );
-
-  const isMaster = currentUser.role === UserRole.MASTER;
 
   return (
     <div className="flex min-h-screen bg-slate-50">
       {/* ─── Sidebar ─── */}
       <aside className="w-64 bg-white border-r border-slate-200 flex flex-col fixed inset-y-0 z-10">
         {/* Logo */}
-        <div className="p-8 flex flex-col items-center border-b border-slate-100 bg-white">
-          <div className="mb-4">
-            <img
-              src="/logo.png"
-              alt="Logo"
-              className="h-12 w-auto object-contain"
-              onError={(e) => {
-                e.currentTarget.src = 'https://cdn-icons-png.flaticon.com/512/3125/3125713.png';
-              }}
-            />
+        <div className="p-6 flex items-center gap-3 border-b border-slate-100">
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-100">
+            <Plane className="text-white w-6 h-6" />
           </div>
-          <div className="text-center">
-            <span className="block font-black text-slate-900 tracking-tighter text-xl leading-none">TravelHub</span>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 block">Gestão com agilidade e eficiência.</span>
-          </div>
+          <span className="font-bold text-slate-900 tracking-tight">TravelHub</span>
         </div>
 
         {/* Navegação */}
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {filteredMenu.map((item) => {
-            const isMasterTab = item.id === 'usuarios';
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
+        <nav className="flex-1 p-4 space-y-1">
+          {filteredMenu.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={cn(
+                'w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group',
+                activeTab === item.id
+                  ? 'bg-blue-50 text-blue-700 shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              )}
+            >
+              <item.icon
                 className={cn(
-                  'w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group',
+                  'w-5 h-5',
                   activeTab === item.id
-                    ? isMasterTab
-                      ? 'bg-purple-50 text-purple-700 shadow-sm'
-                      : 'bg-blue-50 text-blue-700 shadow-sm'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    ? 'text-blue-600'
+                    : 'text-slate-400 group-hover:text-slate-600'
                 )}
-              >
-                <item.icon
-                  className={cn(
-                    'w-5 h-5',
-                    activeTab === item.id
-                      ? isMasterTab ? 'text-purple-600' : 'text-blue-600'
-                      : 'text-slate-400 group-hover:text-slate-600'
-                  )}
-                />
-                {item.label}
-                {isMasterTab && (
-                  <span className="ml-auto text-[8px] font-black text-purple-400 uppercase tracking-widest">
-                    DEV
-                  </span>
-                )}
-              </button>
-            );
-          })}
+              />
+              {item.label}
+            </button>
+          ))}
         </nav>
 
-        {/* Rodapé: perfil */}
+        {/* Rodapé: perfil + troca de papel */}
         <div className="p-4 border-t border-slate-100">
           <div className="bg-slate-50 rounded-2xl p-4 mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-200 font-black text-slate-700 text-sm">
-                {(currentUser.name || 'U').charAt(0).toUpperCase()}
+            {/* Info do usuário */}
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-200">
+                <UserIcon className="w-4 h-4 text-slate-600" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-slate-900 truncate">
                   {currentUser.name || 'Usuário'}
                 </p>
-                <span className={cn(
-                  'inline-block text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full mt-0.5',
-                  ROLE_COLORS[currentUser.role]
-                )}>
-                  {ROLE_LABELS[currentUser.role]}
-                </span>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                  {currentUser.role.replace('_', ' ')}
+                </p>
               </div>
             </div>
 
-            {/* CCs visíveis — apenas para Gestor sem acesso total */}
-            {!isMaster && currentUser.allowedCostCenters && currentUser.allowedCostCenters.length > 0 && currentUser.role === UserRole.GESTOR && (
-              <div className="mt-3 pt-3 border-t border-slate-200">
-                <p className="text-[9px] font-bold text-slate-400 uppercase mb-1.5">Centros de Custo</p>
-                <div className="flex flex-col gap-1">
-                  {currentUser.allowedCostCenters.slice(0, 3).map(cc => (
-                    <span key={cc} className="text-[9px] font-medium text-slate-600 truncate">{cc}</span>
-                  ))}
-                  {currentUser.allowedCostCenters.length > 3 && (
-                    <span className="text-[9px] text-slate-400 italic">+{currentUser.allowedCostCenters.length - 3} mais</span>
-                  )}
-                </div>
+            {/* Alternador de papel — modo provisório */}
+            <div className="pt-3 border-t border-slate-200">
+              <p className="text-[9px] font-bold text-slate-400 uppercase mb-2 flex items-center gap-1">
+                <Settings className="w-2.5 h-2.5" /> Alternar Perfil (Demo)
+              </p>
+              <div className="grid grid-cols-2 gap-1">
+                {(Object.values(UserRole) as UserRole[]).map((role) => (
+                  <button
+                    key={role}
+                    onClick={() => switchRole(role)}
+                    className={cn(
+                      'text-[9px] py-1 px-2 rounded-md border transition-all',
+                      currentUser.role === role
+                        ? 'bg-blue-600 border-blue-600 text-white font-bold'
+                        : 'bg-white border-slate-200 text-slate-500 hover:border-blue-300'
+                    )}
+                  >
+                    {ROLE_LABELS[role]}
+                  </button>
+                ))}
               </div>
-            )}
+            </div>
           </div>
 
-          {/* Botão Sair */}
+          {/* Botão sair */}
           <button
             onClick={logout}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-all"

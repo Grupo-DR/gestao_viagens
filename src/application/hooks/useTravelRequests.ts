@@ -13,7 +13,6 @@ import { PolicyResult } from '../../domain/policy/enums';
 import { mapLegacyToTravelRequest } from '../../domain/travelRequest.rules';
 import type { TravelRequest, LegacyTravelRequest } from '../../domain/types';
 import { UserRole } from '../../domain/enums';
-import { FORCE_MOCK_MODE } from '../services/travelRequestService';
 
 // ──────────────────────────────────────────────
 // Dados Mock para Modo Demo
@@ -42,32 +41,6 @@ const MOCK_REQUESTS: TravelRequest[] = [
       returnDateTime: '2026-05-30T18:00',
       baggageRequired: true,
       costCenter: '102030 - Manutenção',
-      segments: [
-        {
-          id: 'mock-seg-1',
-          order: 1,
-          transportMode: 'aereo',
-          direction: 'ida',
-          origin: 'São Paulo (GRU)',
-          destination: 'Fortaleza (FOR)',
-          departureDateTime: '2026-05-10T08:00',
-          baggageRequired: true,
-          airlineQuote: 'LATAM',
-          priceQuote: 450.00
-        },
-        {
-          id: 'mock-seg-2',
-          order: 2,
-          transportMode: 'aereo',
-          direction: 'volta',
-          origin: 'Fortaleza (FOR)',
-          destination: 'São Paulo (GRU)',
-          departureDateTime: '2026-05-30T18:00',
-          baggageRequired: true,
-          airlineQuote: 'LATAM',
-          priceQuote: 400.50
-        }
-      ]
     },
     leavePeriod: {
       leaveStartDate: '2026-05-11',
@@ -116,33 +89,7 @@ const MOCK_REQUESTS: TravelRequest[] = [
       returnDateTime: '2026-04-22T20:00',
       baggageRequired: false,
       costCenter: '506070 - RH Central',
-      justification: 'Visita de alinhamento com a unidade regional.',
-      segments: [
-        {
-          id: 'mock-seg-3',
-          order: 1,
-          transportMode: 'aereo',
-          direction: 'ida',
-          origin: 'Rio de Janeiro (GIG)',
-          destination: 'Belo Horizonte (CNF)',
-          departureDateTime: '2026-04-20T10:00',
-          baggageRequired: false,
-          airlineQuote: 'AZUL',
-          priceQuote: 600.00
-        },
-        {
-          id: 'mock-seg-4',
-          order: 2,
-          transportMode: 'aereo',
-          direction: 'volta',
-          origin: 'Belo Horizonte (CNF)',
-          destination: 'Rio de Janeiro (GIG)',
-          departureDateTime: '2026-04-22T20:00',
-          baggageRequired: false,
-          airlineQuote: 'AZUL',
-          priceQuote: 600.00
-        }
-      ]
+      justification: 'Visita de alinhamento com a unidade regional.'
     },
     leavePeriod: {},
     validation: {
@@ -208,10 +155,14 @@ function buildQuery(view: TravelListView, userId?: string): Query<DocumentData> 
   }
 }
 
+/**
+ * Tenta interpretar um documento Firestore como v2 nativo.
+ * Se falhar (documento legado), usa o mapeador de compatibilidade.
+ */
 function normalizeDocument(raw: DocumentData & { id: string }): TravelRequest {
   // Heurística: documentos v2 têm o campo "requester" como objeto
   if (raw['requester'] && typeof raw['requester'] === 'object') {
-    return { ...raw, requestId: raw.id } as unknown as TravelRequest;
+    return raw as unknown as TravelRequest;
   }
   // Documento legado: mapear
   return mapLegacyToTravelRequest(raw as unknown as LegacyTravelRequest);
@@ -231,22 +182,6 @@ export function useTravelRequests(options: UseTravelRequestsOptions): UseTravelR
   useEffect(() => {
     setLoading(true);
     setError(null);
-
-    if (FORCE_MOCK_MODE) {
-      console.info('[Mock Mode] Usando dados locais e mocks estáticos.');
-      const localRequests: TravelRequest[] = JSON.parse(localStorage.getItem('demo_requests') || '[]');
-      const allData = [...localRequests, ...MOCK_REQUESTS];
-      
-      let filtered = allData;
-      if (view === 'hr') filtered = allData.filter(r => r.status === RequestStatus.EM_VALIDACAO_CH);
-      if (view === 'buyer') filtered = allData.filter(r => [RequestStatus.DISPONIVEL_PARA_COMPRA, RequestStatus.APROVADA].includes(r.status));
-      if (view === 'requester' && userId) filtered = allData.filter(r => r.requester.requesterId === userId);
-
-      setRequests(filtered);
-      setIsDemoMode(true);
-      setLoading(false);
-      return;
-    }
 
     let q: Query<DocumentData>;
     try {

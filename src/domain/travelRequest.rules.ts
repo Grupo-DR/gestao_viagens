@@ -48,8 +48,9 @@ export function getInitialStatus(
   asDraft: boolean
 ): RequestStatus {
   if (asDraft) return RequestStatus.RASCUNHO;
-  // Todo fluxo obrigatoriamente passará pelo CH
-  return RequestStatus.EM_VALIDACAO_CH;
+  return needsValidation(reason)
+    ? RequestStatus.EM_VALIDACAO_CH
+    : RequestStatus.DISPONIVEL_PARA_COMPRA;
 }
 
 /**
@@ -63,19 +64,19 @@ export function getAvailableTransitions(
   const transitions: Partial<Record<RequestStatus, { allowed: RequestStatus[]; roles: UserRole[] }>> = {
     [RequestStatus.RASCUNHO]: {
       allowed: [RequestStatus.EM_VALIDACAO_CH, RequestStatus.DISPONIVEL_PARA_COMPRA],
-      roles: [UserRole.ADMINISTRATIVO, UserRole.GESTOR, UserRole.MASTER],
+      roles: [UserRole.ADMINISTRATIVO, UserRole.GESTOR],
     },
     [RequestStatus.PENDENTE_CORRECAO]: {
       allowed: [RequestStatus.EM_VALIDACAO_CH, RequestStatus.DISPONIVEL_PARA_COMPRA],
-      roles: [UserRole.ADMINISTRATIVO, UserRole.GESTOR, UserRole.MASTER],
+      roles: [UserRole.ADMINISTRATIVO, UserRole.GESTOR],
     },
     [RequestStatus.EM_VALIDACAO_CH]: {
       allowed: [RequestStatus.DISPONIVEL_PARA_COMPRA, RequestStatus.REPROVADA, RequestStatus.PENDENTE_CORRECAO],
-      roles: [UserRole.CAPITAL_HUMANO, UserRole.GESTOR, UserRole.MASTER],
+      roles: [UserRole.CAPITAL_HUMANO, UserRole.GESTOR],
     },
     [RequestStatus.DISPONIVEL_PARA_COMPRA]: {
       allowed: [RequestStatus.EMITIDA, RequestStatus.CANCELADA, RequestStatus.PENDENTE_CORRECAO],
-      roles: [UserRole.COMPRADOR, UserRole.GESTOR, UserRole.MASTER],
+      roles: [UserRole.COMPRADOR, UserRole.GESTOR],
     },
   };
 
@@ -152,39 +153,6 @@ export function getStatusColor(status: RequestStatus | string): string {
     case RequestStatus.EMITIDA:
     case RequestStatus.CONCLUIDA:        return 'bg-indigo-100 text-indigo-600';
     default:                             return 'bg-slate-100 text-slate-600';
-  }
-}
-
-/**
- * Retorna o rótulo amigável para o status.
- */
-export function getStatusLabel(status: RequestStatus): string {
-  switch (status) {
-    case RequestStatus.RASCUNHO:               return 'Rascunho';
-    case RequestStatus.ENVIADA:                return 'Enviada';
-    case RequestStatus.EM_VALIDACAO_CH:        return 'Em Validação CH';
-    case RequestStatus.PENDENTE_CORRECAO:      return 'Pendente de Correção';
-    case RequestStatus.DISPONIVEL_PARA_COMPRA: return 'Disponível para Compra';
-    case RequestStatus.REPROVADA:              return 'Reprovada';
-    case RequestStatus.CANCELADA:              return 'Cancelada';
-    case RequestStatus.EMITIDA:                return 'Bilhete Emitido';
-    case RequestStatus.CONCLUIDA:              return 'Concluída';
-    default:                                   return status;
-  }
-}
-
-/**
- * Retorna o rótulo do botão de ação baseado no status de destino.
- */
-export function getActionLabel(targetStatus: RequestStatus): string {
-  switch (targetStatus) {
-    case RequestStatus.EM_VALIDACAO_CH:        return 'Enviar para CH';
-    case RequestStatus.DISPONIVEL_PARA_COMPRA: return 'Aprovar / Liberar';
-    case RequestStatus.REPROVADA:              return 'Reprovar';
-    case RequestStatus.PENDENTE_CORRECAO:      return 'Solicitar Correção';
-    case RequestStatus.EMITIDA:                return 'Confirmar Emissão';
-    case RequestStatus.CANCELADA:              return 'Cancelar';
-    default:                                   return 'Avançar';
   }
 }
 
@@ -291,23 +259,10 @@ export function getPassengerDisplayName(request: TravelRequest): string {
 }
 
 /**
- * Retorna a rota formatada para exibição.
- * Prioriza a lista de segmentos (v3). Se não houver, usa os campos legados (v2).
+ * Retorna a rota formatada para exibição: "origin → destination"
  */
 export function formatRoute(request: TravelRequest): string {
-  const { segments, origin, destination } = request.travel;
-
-  // Versão Multitrecho (v3)
-  if (segments && segments.length > 0) {
-    const points: string[] = [];
-    segments.forEach((seg, index) => {
-      if (index === 0) points.push(seg.origin);
-      points.push(seg.destination);
-    });
-    return points.join(' → ');
-  }
-
-  // Versão Legada (v2)
+  const { origin, destination } = request.travel;
   if (origin && destination) return `${origin} → ${destination}`;
   if (destination) return destination;
   return '—';

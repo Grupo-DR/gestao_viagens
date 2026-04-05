@@ -1,10 +1,10 @@
-import { TravelReason, RequestStatus } from '../../domain/enums.ts';
-import { PolicyResult } from '../../domain/policy/enums.ts';
-import { PolicyDecision } from '../../domain/policy/types.ts';
-import { PolicyEngine } from '../../domain/policy/rules.ts';
-import { EmployeeInfo, ValidationInfo } from '../../domain/types.ts';
-import { ExternalVacationDTO, ExternalTimeOffDTO } from '../dtos/ExternalEmployeeDTO.ts';
-import { EmployeeIntegrationResult } from './fetchEmployeeIntegrationData.ts';
+import { TravelReason, RequestStatus } from '../../domain/enums';
+import { PolicyResult } from '../../domain/policy/enums';
+import { PolicyDecision } from '../../domain/policy/types';
+import { PolicyEngine } from '../../domain/policy/rules';
+import { EmployeeInfo, ValidationInfo } from '../../domain/types';
+import { ExternalVacationDTO, ExternalTimeOffDTO } from '../dtos/ExternalEmployeeDTO';
+import { EmployeeIntegrationResult } from './fetchEmployeeIntegrationData';
 
 /**
  * Caso de Uso: Avalia a política da solicitação com base nos dados de integração.
@@ -17,7 +17,7 @@ export function evaluateTravelPolicy(
   integrationData: EmployeeIntegrationResult | null
 ): PolicyDecision {
   
-  // 1. Decisão para Motivos Críticos (Delegado ao Domínio - Sprint 2)
+  // 1. Decisão para Motivos Críticos
   if (reason === TravelReason.FOLGA) {
     return PolicyEngine.evaluateTimeOff(startDate, integrationData?.rawTimeOff || null);
   }
@@ -27,15 +27,24 @@ export function evaluateTravelPolicy(
   }
 
   if (reason === TravelReason.FOLGA_FERIAS) {
-    return PolicyEngine.evaluateCombinedLeave(
-      startDate, 
-      endDate, 
-      integrationData?.rawTimeOff || null,
-      integrationData?.rawVacation || null
-    );
+    const folgaRes = PolicyEngine.evaluateTimeOff(startDate, null); // Simula sem dado específico
+    const feriasRes = PolicyEngine.evaluateVacation(startDate, endDate, null);
+    
+    // Combinação simples: Se um bloqueia, o todo bloqueia.
+    const result = (folgaRes.result === PolicyResult.REJECTED || feriasRes.result === PolicyResult.REJECTED) 
+      ? PolicyResult.REJECTED 
+      : PolicyResult.MANUAL_VALIDATION;
+
+    return {
+      result,
+      violations: [...folgaRes.violations, ...feriasRes.violations],
+      warnings: [...folgaRes.warnings, ...feriasRes.warnings],
+      evidence: { folga: folgaRes.evidence, ferias: feriasRes.evidence },
+      summary: 'Solicitação híbrida requer análise consolidada do CH.',
+    };
   }
 
-  // 2. Outros Motivos (Não sujeitos a políticas de afastamento)
+  // 2. Outros Motivos (Não críticos)
   return {
     result: PolicyResult.APPROVED,
     violations: [],
@@ -49,16 +58,12 @@ export function evaluateTravelPolicy(
  * Sugere o próximo status do workflow com base no resultado da política.
  */
 export function suggestNextStatus(decision: PolicyDecision): RequestStatus {
-  // Sempre encaminha para o CH primeiro, independentemente de conformidade política
   if (decision.result === PolicyResult.APPROVED) {
+    return RequestStatus.DISPONIVEL_PARA_COMPRA;
+  }
+  if (decision.result === PolicyResult.MANUAL_VALIDATION) {
     return RequestStatus.EM_VALIDACAO_CH;
   }
-  
-  // Se for análise manual ou violação de política, encaminha para o CH
-  if (decision.result === PolicyResult.MANUAL_VALIDATION || decision.result === PolicyResult.REJECTED) {
-    return RequestStatus.EM_VALIDACAO_CH;
-  }
-  
-  // Fallback para erros técnicos ou estados inesperados
+  // Se rejeitado ou com erro, volta como rascunho ou pendente de correção
   return RequestStatus.PENDENTE_CORRECAO;
 }

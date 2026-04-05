@@ -1,50 +1,35 @@
 /**
- * DTOs que refletem EXATAMENTE a estrutura JSON do RM TOTVS DR Construtora.
- * Baseado no exemplo oficial fornecido pelo usuário.
+ * DTOs atualizados com campos para motor de regras de política.
  */
 
 export interface ExternalVacationDTO {
-  CHAPA: string;
-  NOME: string;
-  CODSITUACAO: string; // "A" - Ativo
-  FUNCAO: string;
-  CODTIPO: string;
-  INICIOPERAQUIS: string; // ISO String 2025-07-09T00:00:00-03:00
-  FIMPERAQUIS: string;
-  SALDO: number;
-  LIMITE: string;
-  CODSECAO: string;
-  DESCRICAO: string; // Centro de Custo: "3015.03 - VLI SERV..."
-  PRAZO: string;
-  PROGR_INICIO?: string; // Data programada RM
-  PROGR_FIM?: string;    // Data programada RM
-  PROGR_DIAS?: number;   // Quantidade programada RM
-  PROGR_ABONO?: string;  // "S" ou "N" para abono pecuniário
+  RA_CHAPA: string;
+  RA_NOME: string;
+  RA_CARGO: string;
+  RA_SITUA: 'A' | 'D' | 'F'; 
+  DATA_INICIO_PERIODO: string; // YYYYMMDD
+  DATA_FIM_PERIODO: string;    // YYYYMMDD
+  SALDO_DIAS: number;
+  ELEGIVEL: 'S' | 'N';
+  
+  // Novos campos para programação oficial
+  PROGR_INICIO?: string; // YYYYMMDD
+  PROGR_FIM?: string;    // YYYYMMDD
+  PROGR_ABONO?: string;  // YYYYMMDD
 }
 
 export interface ExternalTimeOffDTO {
-  CHAPA: string;
+  MATRICULA: string;
   NOME: string;
-  DATAADMISSAO: string;
-  TIPO: string;
-  DESCRICAO: string; // Ex: "Sim, Moradia acima 600..."
-  ESTADO: string;
-  CIDADE: string;
-  CODCCUSTO: string;
-  NOME_CC: string;
-  ULTIMA_FOLGA?: string; // ISO String
-  DATA_PREVISTA?: string; // ISO String
+  SALDO_HORAS: string;
+  FOLGAS_DISPONIVEIS: number;
+  ULTIMA_FOLGA: string; // YYYY-MM-DD
+  
+  // Campo para elegibilidade de folga
+  DATA_PREVISTA?: string; // YYYY-MM-DD
 }
 
-/** DTO para lista de Centros de Custo (Extraído da DESCRICAO) */
-export interface CostCenterDTO {
-  CODIGO: string;
-  NOME: string;
-}
-
-/** DTO para lista simplificada de colaboradores (Mapeado do ExternalVacationDTO) */
-export interface EmployeeSummaryDTO {
-  CHAPA: string;
-  NOME: string;
-  CARGO: string;
+export interface APIErrorResponse {
+  message: string;
+  code: string;
 }

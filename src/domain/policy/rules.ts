@@ -1,56 +1,35 @@
-import { TravelReason } from '../enums.ts';
-import { PolicySeverity, PolicyResult } from './enums.ts';
-import { 
-  PolicyRule, 
-  PolicyDecision, 
-  TimeOffPolicyEvidence, 
-  VacationPolicyEvidence, 
-  CombinedPolicyEvidence 
-} from './types.ts';
-import { POLICY_RULES } from './catalog.ts';
-import { ExternalVacationDTO, ExternalTimeOffDTO } from '../../application/dtos/ExternalEmployeeDTO.ts';
-
-/**
- * Utilitário interno para normalização de datas.
- */
-const normalize = (d?: string) => d ? d.split('T')[0].replace(/\//g, '-') : '';
+import { TravelReason } from '../enums';
+import { PolicySeverity, PolicyResult } from './enums';
+import { PolicyRule, PolicyDecision } from './types';
+import { POLICY_RULES } from './catalog';
+import { ExternalVacationDTO, ExternalTimeOffDTO } from '../../application/dtos/ExternalEmployeeDTO';
 
 /**
  * Motor de regras puro para política de viagens.
- * Sprint 2: Core Domain Logic & Hybrid Policies.
  */
 export const PolicyEngine = {
   
   /**
    * Avalia uma solicitação de folga.
    */
-  evaluateTimeOff(
-    leaveStartDate: string, 
-    timeOff: ExternalTimeOffDTO | null
-  ): PolicyDecision<TimeOffPolicyEvidence> {
+  evaluateTimeOff(leaveStartDate: string, timeOff: ExternalTimeOffDTO | null): PolicyDecision {
     const violations: PolicyRule[] = [];
     const warnings: PolicyRule[] = [];
-    
-    const prevista = normalize(timeOff?.DATA_PREVISTA);
+    const evidence: Record<string, any> = { leaveStartDate, dataPrevista: timeOff?.DATA_PREVISTA };
 
-    const evidence: TimeOffPolicyEvidence = { 
-      leaveStartDate, 
-      dataPrevista: prevista || null,
-      ultimaFolga: normalize(timeOff?.ULTIMA_FOLGA) || null
-    };
-
-    if (!prevista) {
+    if (!timeOff?.DATA_PREVISTA) {
       warnings.push(POLICY_RULES.FOL_002);
       return {
         result: PolicyResult.MANUAL_VALIDATION,
         violations,
         warnings,
         evidence,
-        summary: 'Data prevista de folga não localizada no Chronos.',
+        summary: 'Data prevista não localizada no sistema RH.',
       };
     }
 
-    if (leaveStartDate < prevista) {
+    // Regra: Não pode antes da data prevista
+    if (leaveStartDate < timeOff.DATA_PREVISTA) {
       violations.push(POLICY_RULES.FOL_001);
     }
 
@@ -70,70 +49,46 @@ export const PolicyEngine = {
   /**
    * Avalia uma solicitação de férias.
    */
-  evaluateVacation(
-    leaveStartDate: string, 
-    leaveEndDate: string, 
-    vacation: ExternalVacationDTO | null
-  ): PolicyDecision<VacationPolicyEvidence> {
+  evaluateVacation(leaveStartDate: string, leaveEndDate: string, vacation: ExternalVacationDTO | null): PolicyDecision {
     const violations: PolicyRule[] = [];
     const warnings: PolicyRule[] = [];
-    
-    const aquaInicio = normalize(vacation?.INICIOPERAQUIS);
-    const aquaFim = normalize(vacation?.FIMPERAQUIS);
-    const prazoGozo = normalize(vacation?.PRAZO);
-    const progrInicio = normalize(vacation?.PROGR_INICIO);
-    const progrFim = normalize(vacation?.PROGR_FIM);
-
-    const evidence: VacationPolicyEvidence = { 
+    const evidence: Record<string, any> = { 
       leaveStartDate, 
       leaveEndDate, 
-      inicioAquisitivo: aquaInicio || null, 
-      fimAquisitivo: aquaFim || null,
-      saldoDias: vacation?.SALDO || 0,
-      prazoLivre: prazoGozo || null,
-      abonoProgramado: vacation?.PROGR_ABONO === 'S',
-      diasProgramados: vacation?.PROGR_DIAS ?? null
+      progrInicio: vacation?.PROGR_INICIO, 
+      progrFim: vacation?.PROGR_FIM 
     };
 
-    if (!aquaInicio || !aquaFim) {
+    if (!vacation?.PROGR_INICIO || !vacation?.PROGR_FIM) {
       warnings.push(POLICY_RULES.FER_003);
       return {
         result: PolicyResult.MANUAL_VALIDATION,
         violations,
         warnings,
         evidence,
-        summary: 'Dados de programação de férias insuficientes no RM.',
+        summary: 'Programação de férias não disponível no Protheus.',
       };
     }
 
-    // Regra 1: Janela Programada RM
-    if (progrInicio && (leaveStartDate < progrInicio || leaveEndDate > (progrFim || leaveEndDate))) {
+    // Normalização das datas de programação (YYYYMMDD -> YYYY-MM-DD para comparação string)
+    const format = (d: string) => `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+    const progrInicio = format(vacation.PROGR_INICIO);
+    const progrFim = format(vacation.PROGR_FIM);
+
+    // Regra: Período solicitado deve estar dentro da janela programada
+    if (leaveStartDate < progrInicio || leaveEndDate > progrFim) {
       violations.push(POLICY_RULES.FER_001);
     }
 
-    // Regra 2: Saldo insuficiente
-    if (evidence.saldoDias <= 0) {
-       violations.push(POLICY_RULES.FER_002);
+    // Regras de abono
+    if (vacation.PROGR_ABONO) {
+      const progrAbono = format(vacation.PROGR_ABONO);
+      if (leaveStartDate <= progrAbono && leaveEndDate >= progrAbono) {
+        warnings.push(POLICY_RULES.FER_004);
+      }
     }
 
-    // Regra 3: Prazo Limite RM
-    if (prazoGozo && leaveStartDate > prazoGozo) {
-      violations.push(POLICY_RULES.FER_005);
-    }
-
-    // Regra 4: Abono Pecuniário
-    if (evidence.abonoProgramado) {
-       warnings.push(POLICY_RULES.FER_004);
-    }
-
-    // Regra 5: Período Aquisitivo não concluído
-    // Somente bloqueia se NÃO houver programação oficial (janela) do RH.
-    if (!progrInicio && aquaFim && leaveStartDate < aquaFim) {
-       violations.push(POLICY_RULES.FER_007);
-    }
-
-    const result = violations.length > 0 ? PolicyResult.REJECTED : 
-                   warnings.length > 0 ? PolicyResult.MANUAL_VALIDATION : PolicyResult.APPROVED;
+    const result = violations.length > 0 ? PolicyResult.REJECTED : PolicyResult.APPROVED;
 
     return {
       result,
@@ -141,44 +96,8 @@ export const PolicyEngine = {
       warnings,
       evidence,
       summary: result === PolicyResult.APPROVED
-        ? 'Férias em conformidade com o saldo e janelas programadas.'
-        : result === PolicyResult.REJECTED
-        ? 'Inconformidade crítica: Verifique janelas, prazos ou saldo.'
-        : 'Requer validação CH: Verifique abono ou divergências parciais.',
-    };
-  },
-
-  /**
-   * Avalia uma solicitação combinada (Híbrida).
-   */
-  evaluateCombinedLeave(
-    leaveStartDate: string,
-    leaveEndDate: string,
-    timeOff: ExternalTimeOffDTO | null,
-    vacation: ExternalVacationDTO | null
-  ): PolicyDecision<CombinedPolicyEvidence> {
-    const folgaRes = this.evaluateTimeOff(leaveStartDate, timeOff);
-    const feriasRes = this.evaluateVacation(leaveStartDate, leaveEndDate, vacation);
-
-    // Consolidação de Severidade: REJECTED > MANUAL_VALIDATION > APPROVED
-    let result = PolicyResult.APPROVED;
-    if (folgaRes.result === PolicyResult.REJECTED || feriasRes.result === PolicyResult.REJECTED) {
-      result = PolicyResult.REJECTED;
-    } else if (folgaRes.result === PolicyResult.MANUAL_VALIDATION || feriasRes.result === PolicyResult.MANUAL_VALIDATION) {
-      result = PolicyResult.MANUAL_VALIDATION;
-    }
-
-    return {
-      result,
-      violations: [...folgaRes.violations, ...feriasRes.violations],
-      warnings: [...folgaRes.warnings, ...feriasRes.warnings],
-      evidence: {
-        folga: folgaRes.evidence,
-        ferias: feriasRes.evidence
-      },
-      summary: result === PolicyResult.REJECTED 
-        ? 'Combinação Híbrida REJEITADA por inconformidade crítica.' 
-        : 'Combinação Híbrida requer validação detalhada do cronograma.',
+        ? 'A solicitação coincide com a janela oficial de férias.'
+        : 'O período solicitado está fora da programação oficial.',
     };
   }
 };

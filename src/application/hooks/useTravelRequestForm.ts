@@ -1,23 +1,17 @@
 // ============================================================
-// APPLICATION — Hook — useTravelRequestForm (Multitrecho Hardened)
-// Gerencia estado do formulário, validação de trechos e reindexação.
+// APPLICATION — Hook — useTravelRequestForm
+// Gerencia estado do formulário e delega persistência para o serviço.
+// Mantém componente TravelForm como view pura.
 // ============================================================
 
 import { useState, useCallback } from 'react';
 import { TravelReason } from '../../domain/enums';
-import type { TravelRequest, TravelRequestFormData, UserProfile, TravelSegment } from '../../domain/types';
+import type { TravelRequest, TravelRequestFormData, UserProfile } from '../../domain/types';
 import {
   createTravelRequest,
   updateTravelRequest,
 } from '../services/travelRequestService';
 import { PolicyDecision } from '../../domain/policy/types';
-import { 
-  createEmptySegment, 
-  normalizeSegmentsFromTravel, 
-  deriveTravelSummaryFromSegments,
-  reindexSegments,
-  validateSegments
-} from '../../domain/travelSegment.helpers';
 
 // ──────────────────────────────────────────────
 // Estado inicial do formulário
@@ -30,7 +24,6 @@ function buildInitialState(editing: TravelRequest | null): TravelRequestFormData
       employeeName: '',
       functionName: '',
       reason: TravelReason.VISITA_TECNICA,
-      segments: [createEmptySegment(1)],
       origin: '',
       destination: '',
       departureDateTime: '',
@@ -42,34 +35,26 @@ function buildInitialState(editing: TravelRequest | null): TravelRequestFormData
       justification: '',
       leaveStartDate: '',
       leaveEndDate: '',
-      cpf: '',
-      birthDate: '',
     };
   }
 
-  // Preenche com dados do modelo v2 e normaliza segmentos (v3)
-  const segments = normalizeSegmentsFromTravel(editing.travel);
-  const summary = deriveTravelSummaryFromSegments(segments);
-
+  // Preenche com dados do modelo v2
   return {
     chapa: editing.employee.chapa ?? '',
     employeeName: editing.employee.employeeName ?? '',
     functionName: editing.employee.functionName ?? '',
     reason: editing.travel.reason ?? TravelReason.VISITA_TECNICA,
-    segments,
-    origin: summary.origin,
-    destination: summary.destination,
-    departureDateTime: summary.departureDateTime,
-    returnDateTime: summary.returnDateTime || '',
-    baggageRequired: summary.baggageRequired,
+    origin: editing.travel.origin ?? '',
+    destination: editing.travel.destination ?? '',
+    departureDateTime: editing.travel.departureDateTime ?? '',
+    returnDateTime: editing.travel.returnDateTime ?? '',
+    baggageRequired: editing.travel.baggageRequired ?? false,
     costCenter: editing.travel.costCenter ?? '',
     projectCode: editing.travel.projectCode ?? '',
     managerName: editing.travel.managerName ?? '',
     justification: editing.travel.justification ?? '',
     leaveStartDate: editing.leavePeriod?.leaveStartDate ?? '',
     leaveEndDate: editing.leavePeriod?.leaveEndDate ?? '',
-    cpf: editing.employee.cpf ?? '',
-    birthDate: editing.employee.birthDate ?? '',
   };
 }
 
@@ -80,18 +65,11 @@ function buildInitialState(editing: TravelRequest | null): TravelRequestFormData
 interface UseTravelRequestFormResult {
   formData: TravelRequestFormData;
   loading: boolean;
-  errors: Record<string, string[]>; // Erros por ID de segmento
-  
-  /** Atualiza um campo do formulário (nível raiz) */
+  /** Atualiza um campo do formulário */
   setField: <K extends keyof TravelRequestFormData>(key: K, value: TravelRequestFormData[K]) => void;
-  
-  // Operações semânticas para segmentos
-  addSegment: () => void;
-  removeSegment: (segmentId: string) => void;
-  /** Atualiza campo de um trecho com tipagem forte */
-  updateSegment: <K extends keyof TravelSegment>(id: string, field: K, value: TravelSegment[K]) => void;
-
+  /** Salva como rascunho */
   saveDraft: (policyDecision?: PolicyDecision) => Promise<void>;
+  /** Envia a solicitação (status calculado pelas regras de negócio) */
   submit: (policyDecision?: PolicyDecision) => Promise<void>;
 }
 
@@ -108,18 +86,6 @@ export function useTravelRequestForm(
     () => buildInitialState(editingRequest)
   );
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string[]>>({});
-
-  /** 
-   * Sincroniza campos legados e reseta erros ao mudar segmentos.
-   */
-  const syncDerivedFields = useCallback((segments: TravelSegment[]) => {
-    const summary = deriveTravelSummaryFromSegments(segments);
-    return {
-       ...summary,
-       returnDateTime: summary.returnDateTime || ''
-    };
-  }, []);
 
   const setField = useCallback(
     <K extends keyof TravelRequestFormData>(key: K, value: TravelRequestFormData[K]) => {
@@ -128,78 +94,8 @@ export function useTravelRequestForm(
     []
   );
 
-  const addSegment = useCallback(() => {
-    setFormData((prev) => {
-      const lastSegment = prev.segments[prev.segments.length - 1];
-      const nextOrder = prev.segments.length + 1;
-      
-      // Lógica de adivinhação: o novo trecho herda o sentido do anterior
-      const nextDirection = lastSegment?.direction || 'ida';
-      
-      const newSegments = [...prev.segments, createEmptySegment(nextOrder, nextDirection)];
-      return { 
-        ...prev, 
-        segments: newSegments,
-        ...syncDerivedFields(newSegments)
-      };
-    });
-  }, [syncDerivedFields]);
-
-  const removeSegment = useCallback((id: string) => {
-    setFormData((prev) => {
-      if (prev.segments.length <= 1) return prev;
-      const filtered = prev.segments.filter(s => s.id !== id);
-      const newSegments = reindexSegments(filtered);
-      return { 
-        ...prev, 
-        segments: newSegments,
-        ...syncDerivedFields(newSegments)
-      };
-    });
-    // Limpa erro do segmento removido
-    setErrors(prev => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-  }, [syncDerivedFields]);
-
-  const updateSegment = useCallback(<K extends keyof TravelSegment>(id: string, field: K, value: TravelSegment[K]) => {
-    setFormData((prev) => {
-      const newSegments = prev.segments.map(s => {
-        if (s.id !== id) return s;
-        
-        const updated = { ...s, [field]: value };
-        
-        // Regra Colateral: Rodoviário não despacha bagagem
-        if (field === 'transportMode' && value === 'rodoviario') {
-           updated.baggageRequired = false;
-        }
-
-        return updated;
-      });
-
-      return { 
-        ...prev, 
-        segments: newSegments,
-        ...syncDerivedFields(newSegments)
-      };
-    });
-  }, [syncDerivedFields]);
-
   const handleSubmit = useCallback(
     async (asDraft: boolean, policyDecision?: PolicyDecision) => {
-      // 1. Validar trechos se for envio definitivo
-      if (!asDraft) {
-         const segmentErrors = validateSegments(formData.segments);
-         setErrors(segmentErrors);
-         
-         if (Object.keys(segmentErrors).length > 0) {
-            console.warn('[Validation] Envio bloqueado por dados incompletos nos trechos.');
-            return;
-         }
-      }
-
       setLoading(true);
       try {
         if (editingRequest) {
@@ -225,15 +121,5 @@ export function useTravelRequestForm(
   const saveDraft = useCallback((policyDecision?: PolicyDecision) => handleSubmit(true, policyDecision), [handleSubmit]);
   const submit = useCallback((policyDecision?: PolicyDecision) => handleSubmit(false, policyDecision), [handleSubmit]);
 
-  return { 
-    formData, 
-    loading, 
-    errors,
-    setField, 
-    addSegment, 
-    removeSegment, 
-    updateSegment, 
-    saveDraft, 
-    submit 
-  };
+  return { formData, loading, setField, saveDraft, submit };
 }

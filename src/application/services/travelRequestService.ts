@@ -27,19 +27,8 @@ import type {
 } from '../../domain/types';
 import { PolicyDecision } from '../../domain/policy/types';
 import { suggestNextStatus } from '../use-cases/evaluateTravelPolicy';
-import { deriveTravelSummaryFromSegments } from '../../domain/travelSegment.helpers';
 
 const COLLECTION = 'travelRequests';
-
-// ──────────────────────────────────────────────
-// Configuração de Demo/Mock
-// ──────────────────────────────────────────────
-
-/** 
- * SET TO TRUE PARA TESTAR SEM FIREBASE (MODO LOCALSTORAGE)
- * Útil quando o banco está fora do ar ou com erros de validação.
- */
-export const FORCE_MOCK_MODE = false;
 
 // ──────────────────────────────────────────────
 // Helpers internos para Mock/Demo
@@ -110,16 +99,14 @@ export async function createTravelRequest(
       chapa: formData.chapa,
       employeeName: formData.employeeName,
       functionName: formData.functionName,
-      cpf: formData.cpf || null,
-      birthDate: formData.birthDate || null,
     },
     travel: {
       reason: formData.reason,
-      segments: formData.segments, // Fonte de verdade v3
-      
-      // Campos derivados (Recalculados no Service para máxima consistência)
-      ...deriveTravelSummaryFromSegments(formData.segments),
-      
+      origin: formData.origin,
+      destination: formData.destination,
+      departureDateTime: formData.departureDateTime,
+      returnDateTime: formData.returnDateTime || null,
+      baggageRequired: formData.baggageRequired,
       costCenter: formData.costCenter,
       projectCode: formData.projectCode || null,
       managerName: formData.managerName || null,
@@ -149,19 +136,11 @@ export async function createTravelRequest(
     },
   };
 
-  if (FORCE_MOCK_MODE) {
-    console.info('[Mock Mode] Salvando nova solicitação no localStorage.');
-    const mockId = `mock-${Math.random().toString(36).substr(2, 9)}`;
-    saveToLocalStorage({ ...document, requestId: mockId } as TravelRequest);
-    return mockId;
-  }
-
   try {
     const ref = await addDoc(collection(db, COLLECTION), document);
     return ref.id;
-  } catch (error: unknown) {
-    const errObj = error as { message?: string };
-    if (errObj.message?.includes('permission')) {
+  } catch (error: any) {
+    if (error.message?.includes('permission')) {
       console.warn('[Demo Mode] Salvando no localStorage devido à falta de permissão Firestore.');
       const mockId = `demo-${Math.random().toString(36).substr(2, 9)}`;
       saveToLocalStorage({ ...document, requestId: mockId } as TravelRequest);
@@ -193,45 +172,29 @@ export async function updateTravelRequest(
   );
 
   const path = `${COLLECTION}/${requestId}`;
-  const updates = {
-    status,
-    'employee.chapa': formData.chapa,
-    'employee.employeeName': formData.employeeName,
-    'employee.functionName': formData.functionName,
-    'employee.cpf': formData.cpf || null,
-    'employee.birthDate': formData.birthDate || null,
-    'travel.reason': formData.reason,
-    'travel.segments': formData.segments, // Fonte de verdade v3
-    
-    // Campos derivados (Recalculados no Service para máxima consistência)
-    ...deriveTravelSummaryFromSegments(formData.segments),
-    
-    'travel.costCenter': formData.costCenter,
-    'travel.projectCode': formData.projectCode || null,
-    'travel.managerName': formData.managerName || null,
-    'travel.justification': formData.justification || null,
-    'leavePeriod.leaveStartDate': formData.leaveStartDate || null,
-    'leavePeriod.leaveEndDate': formData.leaveEndDate || null,
-    'validation.validationRequired': needsValidation(formData.reason),
-    'validation.policyDecision': policyDecision || null,
-    'audit.updatedAt': new Date().toISOString(),
-    'audit.history': [...currentHistory, historyEntry],
-  };
-
-  if (FORCE_MOCK_MODE) {
-    console.info('[Mock Mode] Atualizando solicitação no localStorage.');
-    const localRequests: TravelRequest[] = JSON.parse(localStorage.getItem('demo_requests') || '[]');
-    const index = localRequests.findIndex(r => r.requestId === requestId);
-    if (index >= 0) {
-      // Nota: Em um mock ideal, faríamos merge profundo, mas para teste rápido de workflow:
-      localRequests[index] = { ...localRequests[index], ...updates, requestId } as any; 
-      localStorage.setItem('demo_requests', JSON.stringify(localRequests));
-    }
-    return;
-  }
-
   try {
-    await updateDoc(doc(db, COLLECTION, requestId), updates);
+    await updateDoc(doc(db, COLLECTION, requestId), {
+      status,
+      'employee.chapa': formData.chapa,
+      'employee.employeeName': formData.employeeName,
+      'employee.functionName': formData.functionName,
+      'travel.reason': formData.reason,
+      'travel.origin': formData.origin,
+      'travel.destination': formData.destination,
+      'travel.departureDateTime': formData.departureDateTime,
+      'travel.returnDateTime': formData.returnDateTime || null,
+      'travel.baggageRequired': formData.baggageRequired,
+      'travel.costCenter': formData.costCenter,
+      'travel.projectCode': formData.projectCode || null,
+      'travel.managerName': formData.managerName || null,
+      'travel.justification': formData.justification || null,
+      'leavePeriod.leaveStartDate': formData.leaveStartDate || null,
+      'leavePeriod.leaveEndDate': formData.leaveEndDate || null,
+      'validation.validationRequired': needsValidation(formData.reason),
+      'validation.policyDecision': policyDecision || null,
+      'audit.updatedAt': new Date().toISOString(),
+      'audit.history': [...currentHistory, historyEntry],
+    });
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, path);
   }
@@ -286,27 +249,18 @@ export async function changeRequestStatus(
     updates['validation.validationStatus'] = ValidationStatus.PENDENTE;
   }
 
-  if (FORCE_MOCK_MODE) {
-    console.info('[Mock Mode] Mudando status no localStorage.');
-    const localRequests: TravelRequest[] = JSON.parse(localStorage.getItem('demo_requests') || '[]');
-    const index = localRequests.findIndex(r => r.requestId === requestId);
-    if (index >= 0) {
-      localRequests[index] = { ...localRequests[index], ...updates, requestId } as TravelRequest;
-      localStorage.setItem('demo_requests', JSON.stringify(localRequests));
-    }
-    return;
-  }
-
   try {
     await updateDoc(doc(db, COLLECTION, requestId), updates);
-  } catch (error: unknown) {
-    const errObj = error as { message?: string };
-    if (errObj.message?.includes('permission')) {
+  } catch (error: any) {
+    if (error.message?.includes('permission')) {
       console.warn('[Demo Mode] Atualizando no localStorage devido à falta de permissão Firestore.');
+      // Na demo, recarregaríamos do storage, aplicaríamos updates e salvaríamos de volta
+      // Para simplificar, assumimos que o objeto na lista do hook já está correto ou será recarregado
       const localRequests: TravelRequest[] = JSON.parse(localStorage.getItem('demo_requests') || '[]');
       const index = localRequests.findIndex(r => r.requestId === requestId);
       if (index >= 0) {
-        localRequests[index] = { ...localRequests[index], ...updates, requestId } as TravelRequest;
+        // Update raso para fins de demo
+        localRequests[index] = { ...localRequests[index], status: newStatus, audit: { ...localRequests[index].audit, history: updates['audit.history'] as HistoryEntry[] } };
         localStorage.setItem('demo_requests', JSON.stringify(localRequests));
       }
       return;
