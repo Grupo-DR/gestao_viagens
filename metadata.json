@@ -1,0 +1,5 @@
+{
+  "name": "Sistema de Gestão de Viagens",
+  "description": "Portal corporativo para registro, triagem, validação e compra de passagens aéreas.",
+  "requestFramePermissions": []
+}

@@ -1,0 +1,68 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role-based access control.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["ADMINISTRATIVO", "CAPITAL_HUMANO", "COMPRADOR", "GESTOR"] },
+        "name": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "TravelRequest": {
+      "title": "Travel Request",
+      "description": "A request for a corporate travel ticket.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "requesterUid": { "type": "string" },
+        "requesterEmail": { "type": "string" },
+        "passengerName": { "type": "string" },
+        "reason": { "type": "string", "enum": ["Folga", "Férias", "Folga + férias", "Admissão", "Demissão", "Treinamento", "Visita técnica", "Visita à obra"] },
+        "route": { "type": "string" },
+        "departureDate": { "type": "string", "format": "date-time" },
+        "returnDate": { "type": "string", "format": "date-time" },
+        "costCenter": { "type": "string" },
+        "justification": { "type": "string" },
+        "status": { "type": "string", "enum": ["Rascunho", "Enviada", "Em validação CH", "Pendente de correção", "Aprovada", "Reprovada", "Disponível para compra", "Emitida", "Alterada", "Cancelada", "Concluída"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "status": { "type": "string" },
+              "updatedBy": { "type": "string" },
+              "updatedAt": { "type": "string" },
+              "comment": { "type": "string" }
+            }
+          }
+        },
+        "purchaseDetails": {
+          "type": "object",
+          "properties": {
+            "ticketNumber": { "type": "string" },
+            "price": { "type": "number" },
+            "airline": { "type": "string" },
+            "notes": { "type": "string" }
+          }
+        }
+      },
+      "required": ["requesterUid", "passengerName", "reason", "route", "departureDate", "costCenter", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profiles."
+    },
+    "/travelRequests/{requestId}": {
+      "schema": "TravelRequest",
+      "description": "Travel requests queue."
+    }
+  }
+}

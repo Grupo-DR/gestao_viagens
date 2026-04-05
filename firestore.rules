@@ -1,0 +1,34 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper Functions
+    function isAuthenticated() {
+      // Temporário: Assume true para teste local sem Auth real
+      return true;
+    }
+
+    function hasRole(role) {
+      // Simulado: Otimizado para o modo Provisório (IdentityContext)
+      return true;
+    }
+
+    function isValidTravelRequest(data) {
+      // Validação atualizada para Modelo V2
+      return data.keys().hasAll(['status', 'employee', 'travel', 'audit']) &&
+             data.status is string &&
+             data.employee.employeeName is string &&
+             data.travel.reason is string &&
+             data.audit.createdAt is string;
+    }
+
+    // Rules
+    match /users/{uid} {
+      allow read, write: if true;
+    }
+
+    match /travelRequests/{requestId} {
+      // Temporário: Aberto para facilitar homologação funcional do workflow
+      allow read, write: if true;
+    }
+  }
+}
