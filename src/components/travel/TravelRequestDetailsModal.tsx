@@ -1,27 +1,32 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { XCircle, CheckCircle, ShieldAlert, ShoppingCart, Send, Loader2 } from 'lucide-react';
-import { TravelRequest } from '../../domain/types.ts';
-import { PolicyResult } from '../../domain/policy/enums.ts';
+import { X, CheckCircle, ShieldAlert, ShoppingCart, Loader2 } from 'lucide-react';
+import { TravelRequest, PurchaseInfo } from '../../domain/types.ts';
 import { RequestStatus, UserRole } from '../../domain/enums.ts';
 import { getPassengerDisplayName, formatRoute } from '../../domain/travelRequest.rules.ts';
-import { PolicyDecisionCard, AuditTimeline } from './AuditTimeline.tsx'; // Importado do arquivo modular
+import { PolicyDecisionPanel } from './PolicyDecisionPanel.tsx';
+import { AuditTimeline } from './AuditTimeline.tsx';
 import { PurchaseForm } from './PurchaseForm.tsx';
 import { cn } from '../../lib/utils.ts';
 
-/**
- * TravelRequestDetailsModal (Sprint 3)
- * Orquestrador da visualização detalhada e ações operacionais.
- */
-
 interface TravelRequestDetailsModalProps {
   request: TravelRequest;
-  currentUserRole: string;
+  currentUserRole: UserRole;
   onClose: () => void;
-  onUpdateStatus: (newStatus: RequestStatus, comment: string, purchaseInfo?: any) => Promise<boolean>;
+  onUpdateStatus: (
+    request: TravelRequest, 
+    newStatus: RequestStatus, 
+    comment: string, 
+    purchaseInfo?: Partial<PurchaseInfo>
+  ) => Promise<boolean>;
   isUpdating?: boolean;
 }
 
+/**
+ * TravelRequestDetailsModal (Sprint Final)
+ * Modal modularizado para visualização e ações operacionais.
+ * Removeu alert() e padronizou o fluxo de ações.
+ */
 export function TravelRequestDetailsModal({ 
   request, 
   currentUserRole,
@@ -32,81 +37,94 @@ export function TravelRequestDetailsModal({
   const [comment, setComment] = useState('');
   const [showPurchaseForm, setShowPurchaseForm] = useState(false);
 
-  // Permissões de Ação baseadas na View/Role
-  const isHR = currentUserRole === UserRole.RECURSOS_HUMANOS || currentUserRole === UserRole.ADMINISTRATIVO;
+  // Permissões de Ação
+  const isHR = currentUserRole === UserRole.CAPITAL_HUMANO || currentUserRole === UserRole.ADMINISTRATIVO;
   const isBuyer = currentUserRole === UserRole.COMPRADOR || currentUserRole === UserRole.ADMINISTRATIVO;
   
   const canApproveHR = isHR && request.status === RequestStatus.EM_VALIDACAO_CH;
   const canBuy = isBuyer && [RequestStatus.DISPONIVEL_PARA_COMPRA, RequestStatus.APROVADA].includes(request.status);
 
   const handleAction = async (newStatus: RequestStatus) => {
-    const success = await onUpdateStatus(newStatus, comment);
+    const success = await onUpdateStatus(request, newStatus, comment);
     if (success) {
       setComment('');
       onClose();
     }
   };
 
-  const handlePurchase = async (info: any, purchaseComment: string) => {
-    const success = await onUpdateStatus(RequestStatus.APROVADA, purchaseComment, info);
+  const handlePurchase = async (info: Partial<PurchaseInfo>, purchaseComment: string) => {
+    const success = await onUpdateStatus(request, RequestStatus.EMITIDA, purchaseComment, info);
     if (success) onClose();
   };
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300">
-      <div className="bg-white w-full max-w-2xl rounded-[32px] shadow-2xl overflow-hidden motion-safe:animate-in motion-safe:zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
+      <div className="bg-white w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden motion-safe:animate-in motion-safe:zoom-in-95 duration-300 flex flex-col max-h-[95vh] border-4 border-white">
         
-        {/* Header */}
-        <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/30 shrink-0">
-          <div>
-            <h3 className="text-xl font-bold text-slate-900 tracking-tight">Ficha da Solicitação</h3>
-            <p className="text-[10px] text-slate-400 mt-0.5 font-mono font-bold uppercase tracking-widest">ID: {request.requestId.slice(0, 12)}</p>
+        {/* Header Personalizado */}
+        <div className="px-8 py-7 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center border border-slate-100">
+               <Loader2 className={cn("w-6 h-6 text-blue-600", isUpdating && "animate-spin")} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-slate-900 tracking-tight leading-tight">Ficha de Viagem</h3>
+              <p className="text-[10px] text-slate-400 mt-1 font-mono font-bold uppercase tracking-widest">
+                Protocolo: <span className="text-slate-600">{request.requestId.slice(0, 16)}</span>
+              </p>
+            </div>
           </div>
           <button 
             onClick={onClose} 
-            className="p-1 px-4 hover:bg-slate-200 rounded-full transition-colors text-slate-400 font-bold text-xs flex items-center gap-2"
+            className="p-3 hover:bg-slate-200 rounded-2xl transition-all text-slate-400 hover:text-slate-600"
           >
-            FECHAR <XCircle className="w-5 h-5" />
+            <X className="w-6 h-6" />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-8 overflow-y-auto space-y-8 scrollbar-thin scrollbar-thumb-slate-200 flex-1">
+        {/* Body com Scroll Suave */}
+        <div className="p-8 overflow-y-auto space-y-10 scrollbar-thin scrollbar-thumb-slate-200 flex-1 bg-white">
           {/* Grid de Informações Base */}
-          <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+          <div className="grid grid-cols-2 gap-x-10 gap-y-8">
             {[
               { label: 'Passageiro', value: getPassengerDisplayName(request) },
               { label: 'CHAPA', value: request.employee.chapa || '—' },
               { label: 'Motivo', value: request.travel.reason },
-              { label: 'Rota', value: formatRoute(request) },
               { label: 'Centro de Custo', value: request.travel.costCenter },
+              { label: 'Itinerário', value: formatRoute(request) },
               { label: 'Projeto', value: request.travel.projectCode || 'Consumo Interno' },
               {
-                label: 'Partida',
+                label: 'Decolagem',
                 value: request.travel.departureDateTime
                   ? format(new Date(request.travel.departureDateTime), 'dd/MM/yyyy HH:mm')
-                  : 'Não informada',
+                  : '—',
               },
               {
-                label: 'Retorno',
+                label: 'Retorno Previsto',
                 value: request.travel.returnDateTime
                   ? format(new Date(request.travel.returnDateTime), 'dd/MM/yyyy HH:mm')
                   : 'Só Ida',
               },
             ].map((item) => (
-              <div key={item.label}>
-                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">{item.label}</label>
-                <p className="text-slate-800 font-bold text-sm leading-tight italic tracking-tight">{item.value}</p>
+              <div key={item.label} className="group">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-1.5 transition-colors group-hover:text-blue-500">{item.label}</label>
+                <p className="text-slate-800 font-bold text-sm leading-tight italic">{item.value}</p>
               </div>
             ))}
           </div>
 
-          {/* Card de Política */}
-          {request.validation.policyDecision && (
-            <PolicyDecisionCard decision={request.validation.policyDecision} />
-          )}
+          {/* Seção de Status / Política */}
+          <section className="space-y-4">
+             <div className="flex items-center gap-2">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Validação de Política</h4>
+                <div className="h-px flex-1 bg-slate-100" />
+             </div>
+             {request.validation.policyDecision && (
+               <PolicyDecisionPanel decision={request.validation.policyDecision} />
+             )}
+          </section>
 
-          {/* Purchase Form (Condicional) */}
+          {/* Formulário de Compra (Se aplicável) */}
           {showPurchaseForm && (
             <PurchaseForm 
               onSubmit={handlePurchase}
@@ -115,30 +133,32 @@ export function TravelRequestDetailsModal({
             />
           )}
 
-          {/* Audit Timeline */}
-          <div className="pt-6 border-t border-slate-100">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-6">Trilha de Auditoria</label>
-            <AuditTimeline history={request.audit.history} />
-          </div>
+          {/* Trilha de Auditoria */}
+          <section className="space-y-6 pt-2">
+             <div className="flex items-center gap-2">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Timeline do Workflow</h4>
+                <div className="h-px flex-1 bg-slate-100" />
+             </div>
+             <AuditTimeline history={request.audit.history} />
+          </section>
         </div>
 
-        {/* Footer / Actions */}
-        <div className="p-8 bg-slate-50/50 border-t border-slate-100 flex flex-col gap-4 shrink-0">
+        {/* Footer / Ações Contextuais */}
+        <div className="p-8 bg-slate-50/80 border-t border-slate-100 flex flex-col gap-5 shrink-0">
           
-          {/* Seção de Comentários para Ação */}
           {(canApproveHR || canBuy) && !showPurchaseForm && (
-            <div className="flex flex-col gap-2">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Justificativa / Comentário da Ação</label>
+            <div className="space-y-2.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Justificativa da Ação</label>
               <textarea
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder="Insira observações relevantes para este estágio..."
-                className="w-full p-4 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium h-20 transition-all"
+                placeholder="Insira notas explicativas ou pendências identificadas..."
+                className="w-full p-4 rounded-[24px] border border-slate-200 focus:ring-2 focus:ring-blue-600 outline-none text-sm font-medium h-24 transition-all shadow-sm placeholder:italic"
               />
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-3 font-bold">
+          <div className="flex items-center justify-end gap-3">
             {!showPurchaseForm && (
               <>
                 {canApproveHR && (
@@ -146,17 +166,17 @@ export function TravelRequestDetailsModal({
                     <button 
                       onClick={() => handleAction(RequestStatus.REPROVADA)}
                       disabled={isUpdating}
-                      className="px-6 py-2.5 rounded-xl text-xs text-red-500 hover:bg-red-50 transition-all uppercase tracking-widest border border-red-100"
+                      className="px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 transition-all border border-red-100"
                     >
                       Reprovar
                     </button>
                     <button 
                       onClick={() => handleAction(RequestStatus.DISPONIVEL_PARA_COMPRA)}
                       disabled={isUpdating}
-                      className="bg-emerald-600 text-white px-8 py-2.5 rounded-xl text-xs uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-100 flex items-center gap-2"
+                      className="bg-emerald-600 text-white px-10 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-emerald-700 shadow-xl shadow-emerald-100 flex items-center gap-2 group transition-all"
                     >
-                      {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                      Aprovar (CH)
+                      {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4 group-hover:scale-110 transition-transform" />}
+                      Aprovar para Compra
                     </button>
                   </>
                 )}
@@ -164,10 +184,10 @@ export function TravelRequestDetailsModal({
                 {canBuy && (
                   <button 
                     onClick={() => setShowPurchaseForm(true)}
-                    className="bg-blue-600 text-white px-8 py-2.5 rounded-xl text-xs uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-100 flex items-center gap-2"
+                    className="bg-blue-600 text-white px-10 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-100 flex items-center gap-2 group transition-all"
                   >
-                     <ShoppingCart className="w-4 h-4" />
-                     Processar Compra
+                     <ShoppingCart className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                     Processar Emissão
                   </button>
                 )}
               </>
@@ -176,9 +196,9 @@ export function TravelRequestDetailsModal({
             {!canApproveHR && !canBuy && (
                <button 
                  onClick={onClose}
-                 className="px-6 py-2.5 rounded-xl text-xs text-slate-500 hover:bg-slate-200 transition-all uppercase tracking-widest"
+                 className="px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-200 transition-all border border-slate-100"
                >
-                 Fechar
+                 Fechar Ficha
                </button>
             )}
           </div>

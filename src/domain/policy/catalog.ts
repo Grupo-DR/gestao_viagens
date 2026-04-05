@@ -48,6 +48,11 @@ export const POLICY_RULES: Record<string, PolicyRule> = {
     severity: PolicySeverity.WARNING,
     message: 'Quantidade de dias solicitada diverge do PROGR_DIAS planejado no RM.',
   },
+  'FER_007': {
+    code: 'FER_007',
+    severity: PolicySeverity.BLOCK,
+    message: 'Período aquisitivo ainda em andamento. Férias individuais permitidas apenas após o fechamento do ciclo no RM.',
+  },
 
   // Regras Híbridas (Combined)
   'COM_001': {

@@ -37,12 +37,20 @@ export const EmployeeMapper = {
     // O RM retorna ISO String ou 'YYYY-MM-DD'
     const formatDate = (raw: string) => raw ? raw.split('T')[0] : '—';
 
+    const blockingReasons: string[] = [];
+    if (data.SALDO <= 0) blockingReasons.push('Saldo insuficiente de férias no período.');
+    
+    // Alerta de período aquisitivo futuro (CLT)
+    if (!data.PROGR_INICIO && end && new Date(end) > new Date()) {
+       blockingReasons.push('Período aquisitivo ainda em andamento. Direito garantido apenas após ' + formatDate(end) + '.');
+    }
+
     return {
       validationRequired: true,
       validationType: 'Férias',
-      validationStatus: data.SALDO > 0 ? ValidationStatus.PENDENTE : ValidationStatus.REPROVADA,
+      validationStatus: blockingReasons.length > 0 ? ValidationStatus.REPROVADA : ValidationStatus.PENDENTE,
       validationSummary: `Saldo: ${data.SALDO} dias. Período aquisitivo: ${formatDate(start)} a ${formatDate(end)}.`,
-      blockingReasons: data.SALDO <= 0 ? ['Saldo insuficiente de férias no período.'] : [],
+      blockingReasons,
     };
   },
 
@@ -53,13 +61,14 @@ export const EmployeeMapper = {
     const formatDate = (raw?: string) => raw ? raw.split('T')[0] : '—';
     const nextDate = data.DATA_PREVISTA ? new Date(data.DATA_PREVISTA) : null;
     const isEligible = nextDate ? nextDate <= new Date() : false;
+    const rule = data.DESCRICAO || 'Não identificada';
 
     return {
       validationRequired: true,
       validationType: 'Folga',
       validationStatus: isEligible ? ValidationStatus.PENDENTE : ValidationStatus.REPROVADA,
-      validationSummary: `Política: ${data.DESCRICAO}. Última folga: ${formatDate(data.ULTIMA_FOLGA)}. Próxima prevista: ${formatDate(data.DATA_PREVISTA)}.`,
-      blockingReasons: !isEligible ? [`Aguardando data prevista (${formatDate(data.DATA_PREVISTA)}) para nova folga.`] : [],
+      validationSummary: `Regra: ${rule}. Próxima folga elegível em ${formatDate(data.DATA_PREVISTA)}.`,
+      blockingReasons: !isEligible ? [`Aguardando data prevista (${formatDate(data.DATA_PREVISTA)}) de acordo com a política de campo.`] : [],
     };
   },
 

@@ -139,8 +139,9 @@ export async function createTravelRequest(
   try {
     const ref = await addDoc(collection(db, COLLECTION), document);
     return ref.id;
-  } catch (error: any) {
-    if (error.message?.includes('permission')) {
+  } catch (error: unknown) {
+    const errObj = error as { message?: string };
+    if (errObj.message?.includes('permission')) {
       console.warn('[Demo Mode] Salvando no localStorage devido à falta de permissão Firestore.');
       const mockId = `demo-${Math.random().toString(36).substr(2, 9)}`;
       saveToLocalStorage({ ...document, requestId: mockId } as TravelRequest);
@@ -251,8 +252,9 @@ export async function changeRequestStatus(
 
   try {
     await updateDoc(doc(db, COLLECTION, requestId), updates);
-  } catch (error: any) {
-    if (error.message?.includes('permission')) {
+  } catch (error: unknown) {
+    const errObj = error as { message?: string };
+    if (errObj.message?.includes('permission')) {
       console.warn('[Demo Mode] Atualizando no localStorage devido à falta de permissão Firestore.');
       // Na demo, recarregaríamos do storage, aplicaríamos updates e salvaríamos de volta
       // Para simplificar, assumimos que o objeto na lista do hook já está correto ou será recarregado
@@ -260,7 +262,7 @@ export async function changeRequestStatus(
       const index = localRequests.findIndex(r => r.requestId === requestId);
       if (index >= 0) {
         // Update raso para fins de demo
-        localRequests[index] = { ...localRequests[index], status: newStatus, audit: { ...localRequests[index].audit, history: updates['audit.history'] as HistoryEntry[] } };
+        localRequests[index] = { ...localRequests[index], ...updates, requestId } as TravelRequest;
         localStorage.setItem('demo_requests', JSON.stringify(localRequests));
       }
       return;

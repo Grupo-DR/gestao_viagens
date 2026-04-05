@@ -11,12 +11,15 @@ import {
   EmployeeIntegrationResult 
 } from '../use-cases/fetchEmployeeIntegrationData.ts';
 import { EmployeeMapper } from '../mappers/EmployeeMapper.ts';
+import { getErrorMessage } from '../../lib/errorUtils.ts';
+import { useToast } from './useToast.ts';
 import { ExternalVacationDTO } from '../dtos/ExternalEmployeeDTO.ts';
 
 export interface CCListItem { code: string; label: string }
 export interface EmployeeListItem { chapa: string; name: string; role: string }
 
 export function useEmployeeIntegration() {
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -87,7 +90,9 @@ export function useEmployeeIntegration() {
         setData(result);
         return result;
       }
-      setError(err.message || 'Erro ao carregar dados do colaborador.');
+      const msg = getErrorMessage(err, 'Erro ao carregar colaboradores');
+      setError(msg);
+      showToast('Erro RM', 'error', msg);
     } finally {
       setLoading(false);
     }

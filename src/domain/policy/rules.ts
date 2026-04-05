@@ -126,6 +126,12 @@ export const PolicyEngine = {
        warnings.push(POLICY_RULES.FER_004);
     }
 
+    // Regra 5: Período Aquisitivo não concluído
+    // Somente bloqueia se NÃO houver programação oficial (janela) do RH.
+    if (!progrInicio && aquaFim && leaveStartDate < aquaFim) {
+       violations.push(POLICY_RULES.FER_007);
+    }
+
     const result = violations.length > 0 ? PolicyResult.REJECTED : 
                    warnings.length > 0 ? PolicyResult.MANUAL_VALIDATION : PolicyResult.APPROVED;
 
