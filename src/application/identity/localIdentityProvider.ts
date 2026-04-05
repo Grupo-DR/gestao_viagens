@@ -7,6 +7,7 @@
 
 import { UserRole } from '../../domain/enums';
 import type { UserProfile } from '../../domain/types';
+import type { IdentityProvider } from './types';
 
 // Chave de persistência no localStorage
 const STORAGE_KEY = 'gestao_viagens:identity';
@@ -18,16 +19,6 @@ const DEFAULT_PROFILE: UserProfile = {
   name: 'Usuário (Modo Provisório)',
   role: UserRole.ADMINISTRATIVO,
 };
-
-// ──────────────────────────────────────────────
-// Interface pública do provider de identidade
-// Qualquer adapter (local, Firebase, SSO) deve implementar este contrato.
-// ──────────────────────────────────────────────
-export interface IdentityProvider {
-  getProfile(): UserProfile;
-  switchRole(role: UserRole): UserProfile;
-  logout(): void;
-}
 
 // ──────────────────────────────────────────────
 // Implementação: localStorage

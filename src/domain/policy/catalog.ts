@@ -1,5 +1,5 @@
-import { PolicySeverity } from './enums';
-import { PolicyRule } from './types';
+import { PolicySeverity } from './enums.ts';
+import { PolicyRule } from './types.ts';
 
 /**
  * Catálogo de regras de política para padronização de mensagens e códigos.
@@ -26,7 +26,7 @@ export const POLICY_RULES: Record<string, PolicyRule> = {
   'FER_002': {
     code: 'FER_002',
     severity: PolicySeverity.BLOCK,
-    message: 'Solicitação dentro do período aquisitivo não permitido.',
+    message: 'Solicitação fora do limite permitido pelo RM (Confira FIMPERAQUIS).',
   },
   'FER_003': {
     code: 'FER_003',
@@ -37,6 +37,23 @@ export const POLICY_RULES: Record<string, PolicyRule> = {
     code: 'FER_004',
     severity: PolicySeverity.WARNING,
     message: 'O período solicitado sobrepõe o período de abono (PROGR_ABONO).',
+  },
+  'FER_005': {
+    code: 'FER_005',
+    severity: PolicySeverity.BLOCK,
+    message: 'Viagem solicitada após o PRAZO limite de gozo de férias.',
+  },
+  'FER_006': {
+    code: 'FER_006',
+    severity: PolicySeverity.WARNING,
+    message: 'Quantidade de dias solicitada diverge do PROGR_DIAS planejado no RM.',
+  },
+
+  // Regras Híbridas (Combined)
+  'COM_001': {
+    code: 'COM_001',
+    severity: PolicySeverity.BLOCK,
+    message: 'Inconformidade crítica detectada no cruzamento de Folga + Férias.',
   },
 
   // Regras Gerais

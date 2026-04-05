@@ -23,11 +23,11 @@ import {
   formatRoute,
 } from '../domain/travelRequest.rules';
 import type { TravelRequest, HistoryEntry, PurchaseInfo } from '../domain/types';
-import { useIdentity } from '../application/identity/IdentityContext';
-import { useTravelRequests, TravelListView } from '../application/hooks/useTravelRequests';
-import { changeRequestStatus, deleteTravelRequest } from '../application/services/travelRequestService';
-import { cn } from '../lib/utils';
-import { UserRole } from '../domain/enums';
+import { useIdentity } from '../application/identity/IdentityContext.tsx';
+import { useTravelRequests, TravelListView } from '../application/hooks/useTravelRequests.ts';
+import { changeRequestStatus, deleteTravelRequest } from '../application/services/travelRequestService.ts';
+import { cn } from '../lib/utils.ts';
+import { UserRole } from '../domain/enums.ts';
 
 // ──────────────────────────────────────────────
 // Props

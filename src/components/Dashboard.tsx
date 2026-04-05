@@ -47,45 +47,27 @@ function groupByField(items: { value: string }[]): ChartDataPoint[] {
 export function Dashboard() {
   const { requests, loading, error, isDemoMode } = useTravelRequests({ view: 'all' });
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-        <p className="text-slate-500 font-medium italic">Sincronizando governança de viagens...</p>
-      </div>
-    );
-  }
-
-  // No modo demo, ignoramos o erro de permissão para renderizar a UI
-  if (error && !isDemoMode) {
-    return (
-      <div className="p-8 bg-red-50 border border-red-100 rounded-2xl text-red-700 flex items-center gap-3">
-        <ShieldAlert className="w-6 h-6" />
-        <div>
-          <h3 className="font-bold">Erro de Conexão</h3>
-          <p className="text-sm opacity-90">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Agrega dados para gráficos usando funções puras
-  const reasonData: ChartDataPoint[] = groupByField(
+  // Agrega dados para gráficos usando funções puras (memoizados)
+  const reasonData = React.useMemo(() => groupByField(
     requests.map((r) => ({ value: r.travel.reason }))
-  );
+  ), [requests]);
 
-  const statusData: ChartDataPoint[] = groupByField(
+  const statusData = React.useMemo(() => groupByField(
     requests.map((r) => ({ value: r.status }))
-  );
+  ), [requests]);
 
-  // Estatísticas rápidas
-  // Novas métricas de política
-  const autoApproved = requests.filter(r => r.validation.policyDecision?.result === PolicyResult.APPROVED).length;
-  const manualValidation = requests.filter(r => r.validation.policyDecision?.result === PolicyResult.MANUAL_VALIDATION).length;
-  const blockedByPolicy = requests.filter(r => r.validation.policyDecision?.result === PolicyResult.REJECTED).length;
-  const totalPolicyAlerts = requests.filter(r => (r.validation.policyDecision?.warnings.length || 0) > 0).length;
+  // Estatísticas rápidas de conformidade (memoizadas)
+  const policyCounters = React.useMemo(() => {
+    return {
+      autoApproved: requests.filter(r => r.validation.policyDecision?.result === PolicyResult.APPROVED).length,
+      manualValidation: requests.filter(r => r.validation.policyDecision?.result === PolicyResult.MANUAL_VALIDATION).length,
+      blockedByPolicy: requests.filter(r => r.validation.policyDecision?.result === PolicyResult.REJECTED).length,
+      totalPolicyAlerts: requests.filter(r => (r.validation.policyDecision?.warnings.length || 0) > 0).length,
+    };
+  }, [requests]);
 
-  const stats = [
+  // Estatísticas operacionais (memoizadas)
+  const stats = React.useMemo(() => [
     {
       label: 'Total de Pedidos',
       value: requests.length,
@@ -116,14 +98,36 @@ export function Dashboard() {
       icon: XCircle,
       color: 'bg-red-500',
     }
-  ];
+  ], [requests]);
 
-  const policyStats = [
-    { label: 'Aprovados Auto', value: autoApproved, icon: ShieldCheck, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'Análise Manual', value: manualValidation, icon: Users, color: 'text-amber-600', bg: 'bg-amber-50' },
-    { label: 'Bloqueios Política', value: blockedByPolicy, icon: ShieldAlert, color: 'text-red-600', bg: 'bg-red-50' },
-    { label: 'Alertas Ativos', value: totalPolicyAlerts, icon: AlertCircle, color: 'text-blue-600', bg: 'bg-blue-50' },
-  ];
+  const policyStats = React.useMemo(() => [
+    { label: 'Aprovados Auto', value: policyCounters.autoApproved, icon: ShieldCheck, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'Análise Manual', value: policyCounters.manualValidation, icon: Users, color: 'text-amber-600', bg: 'bg-amber-50' },
+    { label: 'Bloqueios Política', value: policyCounters.blockedByPolicy, icon: ShieldAlert, color: 'text-red-600', bg: 'bg-red-50' },
+    { label: 'Alertas Ativos', value: policyCounters.totalPolicyAlerts, icon: AlertCircle, color: 'text-blue-600', bg: 'bg-blue-50' },
+  ], [policyCounters]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+        <p className="text-slate-500 font-medium italic">Sincronizando governança de viagens...</p>
+      </div>
+    );
+  }
+
+  // No modo demo, ignoramos o erro de permissão para renderizar a UI
+  if (error && !isDemoMode) {
+    return (
+      <div className="p-8 bg-red-50 border border-red-100 rounded-2xl text-red-700 flex items-center gap-3">
+        <ShieldAlert className="w-6 h-6" />
+        <div>
+          <h3 className="font-bold">Erro de Conexão</h3>
+          <p className="text-sm opacity-90">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

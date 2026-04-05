@@ -6,9 +6,9 @@
 
 import React from 'react';
 import { UserRole } from '../domain/enums';
-import { useIdentity } from '../application/identity/IdentityContext';
+import { useIdentity } from '../application/identity/IdentityContext.tsx';
 import { Plane, ShieldCheck, ShoppingCart, BarChart3, LogOut, User as UserIcon, Settings } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn } from '../lib/utils.ts';
 
 // ──────────────────────────────────────────────
 // Configuração do menu (roles que têm acesso a cada aba)
@@ -69,7 +69,7 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
 
   // Filtra o menu de acordo com o papel atual
   const filteredMenu = MENU_ITEMS.filter((item) =>
-    item.roles.includes(currentUser.role)
+    (item.roles as readonly UserRole[]).includes(currentUser.role)
   );
 
   return (

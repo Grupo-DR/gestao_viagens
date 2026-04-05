@@ -1,5 +1,5 @@
-import { API_CONFIG, AUTH_HEADERS } from './config';
-import { ExternalTimeOffDTO } from '../../application/dtos/ExternalEmployeeDTO';
+import { API_CONFIG, AUTH_HEADERS } from './config.ts';
+import { ExternalTimeOffDTO } from '../../application/dtos/ExternalEmployeeDTO.ts';
 
 /**
  * Cliente para consulta de folgas no Chronos.
@@ -15,7 +15,7 @@ export const timeOffApiClient = {
 
     try {
       // RM SQL via Framework exige POST com parâmetros no body
-      const response = await fetch(`${API_CONFIG.RM_SQL_BASE_URL}/FOLGA_BAIXADA/0/P`, {
+      const response = await fetch(`${API_CONFIG.RM_SQL_BASE_URL}/${API_CONFIG.SENTENCES.FOLGA}/0/P`, {
         method: 'POST',
         headers: AUTH_HEADERS,
         body: JSON.stringify({

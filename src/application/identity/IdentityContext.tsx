@@ -4,10 +4,14 @@
 // Desacoplado do provider concreto (local vs Firebase).
 // ============================================================
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { UserRole } from '../../domain/enums';
 import type { UserProfile } from '../../domain/types';
+import type { IdentityProvider } from './types';
 import { localIdentityProvider } from './localIdentityProvider';
+
+// Em uma fase futura, isso viria de uma configuração/env
+const activeProvider: IdentityProvider = localIdentityProvider;
 
 // ──────────────────────────────────────────────
 // Contrato do context
@@ -48,27 +52,27 @@ interface IdentityProviderProps {
 }
 
 export function IdentityProvider({ children }: IdentityProviderProps) {
-  // Estado inicializado a partir do adapter local (localStorage)
+  // Estado inicializado a partir do provider ativo
   const [currentUser, setCurrentUser] = useState<UserProfile>(
-    () => localIdentityProvider.getProfile()
+    () => activeProvider.getProfile()
   );
 
   const switchRole = useCallback((role: UserRole) => {
-    const updated = localIdentityProvider.switchRole(role);
+    const updated = activeProvider.switchRole(role);
     setCurrentUser(updated);
   }, []);
 
   const logout = useCallback(() => {
-    localIdentityProvider.logout();
+    activeProvider.logout();
     // Na fase provisória simplesmente recarrega — Firebase Auth faria o redirect
     window.location.reload();
   }, []);
 
-  const value: IdentityContextValue = {
+  const value: IdentityContextValue = useMemo(() => ({
     currentUser,
     switchRole,
     logout,
-  };
+  }), [currentUser, switchRole, logout]);
 
   return (
     <IdentityContext.Provider value={value}>

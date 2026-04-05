@@ -1,43 +1,66 @@
-import { vacationsApiClient } from '../../infrastructure/api/vacationsClient';
-import { timeOffApiClient } from '../../infrastructure/api/timeOffApiClient';
-import { EmployeeMapper } from '../mappers/EmployeeMapper';
+import { API_CONFIG } from '../../infrastructure/api/config.ts';
+import { rmSqlClient } from '../../infrastructure/api/rmSqlClient.ts';
+import { EmployeeMapper } from '../mappers/EmployeeMapper.ts';
 import { EmployeeInfo, ValidationInfo } from '../../domain/types';
-import { TravelReason } from '../../domain/enums';
-import { ExternalVacationDTO, ExternalTimeOffDTO } from '../dtos/ExternalEmployeeDTO';
+import { ExternalVacationDTO, ExternalTimeOffDTO } from '../dtos/ExternalEmployeeDTO.ts';
 
 export interface EmployeeIntegrationResult {
   employeeInfo: EmployeeInfo;
   vacationValidation?: ValidationInfo;
   timeOffValidation?: ValidationInfo;
-  // Dados brutos para o motor de regras
   rawVacation?: ExternalVacationDTO;
   rawTimeOff?: ExternalTimeOffDTO;
 }
 
 /**
- * Caso de uso: Busca dados de integração do colaborador via CHAPA.
- * Realiza as chamadas em paralelo para otimizar performance.
+ * Busca a base mestre de colaboradores (VENCIMENTO_FER).
+ * Retorna a lista completa para extração de Centros de Custo e Colaboradores.
+ */
+export async function getMasterEmployeeList(): Promise<ExternalVacationDTO[]> {
+  // Chamada GET para a lista completa
+  return await rmSqlClient.executeSentence<ExternalVacationDTO>(API_CONFIG.SENTENCES.FERIAS);
+}
+
+/**
+ * Busca a lista oficial de Centros de Custo extraídos da base mestre.
+ */
+export async function getCostCenterListFromMaster(masterList: ExternalVacationDTO[]) {
+  return EmployeeMapper.mapToCostCenterList(masterList);
+}
+
+/**
+ * Filtra a lista de colaboradores de um centro de custo específico na base mestre.
+ */
+export function filterEmployeesByCC(masterList: ExternalVacationDTO[], ccValue: string) {
+  const filtered = masterList.filter(e => e.DESCRICAO === ccValue);
+  return EmployeeMapper.mapToEmployeeSummaryList(filtered);
+}
+
+/**
+ * Busca dados de integração detalhados do colaborador (Férias/Folgas/Política).
  */
 export async function getCompleteEmployeeData(chapa: string): Promise<EmployeeIntegrationResult> {
-  // Chamada em paralelo dos endpoints
-  // Nota: o vacationsApiClient retorna uma lista (períodos de férias)
-  const [vacationResults, timeOffResult] = await Promise.all([
-    vacationsApiClient.fetchByChapa(chapa),
-    timeOffApiClient.fetchByChapa(chapa),
+  // Buscamos os dados individuais para CHAPA via GET
+  // Nota: o RM ignorou o filtro na query string em testes de console,
+  // mas aqui tentamos o GET para manter o protocolo 200.
+  const [vacationResults, timeOffResults] = await Promise.all([
+    rmSqlClient.executeSentence<ExternalVacationDTO>(API_CONFIG.SENTENCES.FERIAS, { CHAPA: chapa }),
+    rmSqlClient.executeSentence<ExternalTimeOffDTO>(API_CONFIG.SENTENCES.FOLGA, { CHAPA: chapa }),
   ]);
 
-  if (vacationResults.length === 0) {
-    throw new Error(`CHAPA ${chapa} não localizada no sistema Protheus.`);
+  // Se o servidor ignorar o filtro e retornar a lista toda, filtramos localmente
+  const employeeVacation = vacationResults.find(v => v.CHAPA === chapa);
+  const employeeTimeOff = timeOffResults.find(t => t.CHAPA === chapa);
+
+  if (!employeeVacation) {
+    throw new Error(`Dados de CHAPA ${chapa} não encontrados nos endpoints RM.`);
   }
 
-  // Pega o primeiro registro de férias para dados cadastrais
-  const primaryVacation = vacationResults[0];
-
   return {
-    employeeInfo: EmployeeMapper.mapToEmployeeInfo(primaryVacation),
-    vacationValidation: EmployeeMapper.mapToVacationValidation(primaryVacation),
-    timeOffValidation: timeOffResult ? EmployeeMapper.mapToTimeOffValidation(timeOffResult) : undefined,
-    rawVacation: primaryVacation,
-    rawTimeOff: timeOffResult || undefined,
+    employeeInfo: EmployeeMapper.mapToEmployeeInfo(employeeVacation),
+    vacationValidation: EmployeeMapper.mapToVacationValidation(employeeVacation),
+    timeOffValidation: employeeTimeOff ? EmployeeMapper.mapToTimeOffValidation(employeeTimeOff) : undefined,
+    rawVacation: employeeVacation,
+    rawTimeOff: employeeTimeOff || undefined,
   };
 }

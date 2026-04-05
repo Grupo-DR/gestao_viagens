@@ -6,13 +6,13 @@
 // ============================================================
 
 import { useState } from 'react';
-import { IdentityProvider } from './application/identity/IdentityContext';
-import { useIdentity } from './application/identity/IdentityContext';
-import { Layout, AppTab } from './components/Layout';
-import { TravelForm } from './components/TravelForm';
-import { TravelList } from './components/TravelList';
-import { Dashboard } from './components/Dashboard';
-import type { TravelRequest } from './domain/types';
+import { IdentityProvider } from './application/identity/IdentityContext.tsx';
+import { useIdentity } from './application/identity/IdentityContext.tsx';
+import { Layout, AppTab } from './components/Layout.tsx';
+import { TravelForm } from './components/TravelForm.tsx';
+import { TravelList } from './components/TravelList.tsx';
+import { Dashboard } from './components/Dashboard.tsx';
+import type { TravelRequest } from './domain/types.ts';
 
 // ──────────────────────────────────────────────
 // Sub-componente interno: conteúdo com acesso ao contexto
@@ -36,18 +36,16 @@ function AppContent() {
   };
 
   const renderContent = () => {
-    // Formulário sobrepõe qualquer aba quando aberto
-    if (showForm) {
-      return (
-        <TravelForm
-          onClose={handleCloseForm}
-          editingRequest={editingRequest}
-        />
-      );
-    }
-
     switch (activeTab) {
       case 'requests':
+        if (showForm) {
+          return (
+            <TravelForm
+              onClose={handleCloseForm}
+              editingRequest={editingRequest}
+            />
+          );
+        }
         return (
           <TravelList
             view="requester"

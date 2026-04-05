@@ -1,10 +1,10 @@
-import { TravelReason, RequestStatus } from '../../domain/enums';
-import { PolicyResult } from '../../domain/policy/enums';
-import { PolicyDecision } from '../../domain/policy/types';
-import { PolicyEngine } from '../../domain/policy/rules';
-import { EmployeeInfo, ValidationInfo } from '../../domain/types';
-import { ExternalVacationDTO, ExternalTimeOffDTO } from '../dtos/ExternalEmployeeDTO';
-import { EmployeeIntegrationResult } from './fetchEmployeeIntegrationData';
+import { TravelReason, RequestStatus } from '../../domain/enums.ts';
+import { PolicyResult } from '../../domain/policy/enums.ts';
+import { PolicyDecision } from '../../domain/policy/types.ts';
+import { PolicyEngine } from '../../domain/policy/rules.ts';
+import { EmployeeInfo, ValidationInfo } from '../../domain/types.ts';
+import { ExternalVacationDTO, ExternalTimeOffDTO } from '../dtos/ExternalEmployeeDTO.ts';
+import { EmployeeIntegrationResult } from './fetchEmployeeIntegrationData.ts';
 
 /**
  * Caso de Uso: Avalia a política da solicitação com base nos dados de integração.
@@ -17,7 +17,7 @@ export function evaluateTravelPolicy(
   integrationData: EmployeeIntegrationResult | null
 ): PolicyDecision {
   
-  // 1. Decisão para Motivos Críticos
+  // 1. Decisão para Motivos Críticos (Delegado ao Domínio - Sprint 2)
   if (reason === TravelReason.FOLGA) {
     return PolicyEngine.evaluateTimeOff(startDate, integrationData?.rawTimeOff || null);
   }
@@ -27,24 +27,15 @@ export function evaluateTravelPolicy(
   }
 
   if (reason === TravelReason.FOLGA_FERIAS) {
-    const folgaRes = PolicyEngine.evaluateTimeOff(startDate, null); // Simula sem dado específico
-    const feriasRes = PolicyEngine.evaluateVacation(startDate, endDate, null);
-    
-    // Combinação simples: Se um bloqueia, o todo bloqueia.
-    const result = (folgaRes.result === PolicyResult.REJECTED || feriasRes.result === PolicyResult.REJECTED) 
-      ? PolicyResult.REJECTED 
-      : PolicyResult.MANUAL_VALIDATION;
-
-    return {
-      result,
-      violations: [...folgaRes.violations, ...feriasRes.violations],
-      warnings: [...folgaRes.warnings, ...feriasRes.warnings],
-      evidence: { folga: folgaRes.evidence, ferias: feriasRes.evidence },
-      summary: 'Solicitação híbrida requer análise consolidada do CH.',
-    };
+    return PolicyEngine.evaluateCombinedLeave(
+      startDate, 
+      endDate, 
+      integrationData?.rawTimeOff || null,
+      integrationData?.rawVacation || null
+    );
   }
 
-  // 2. Outros Motivos (Não críticos)
+  // 2. Outros Motivos (Não sujeitos a políticas de afastamento)
   return {
     result: PolicyResult.APPROVED,
     violations: [],

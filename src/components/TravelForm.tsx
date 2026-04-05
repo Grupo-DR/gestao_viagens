@@ -1,21 +1,20 @@
 // ============================================================
 // PRESENTATION — TravelForm
 // View pura: delega toda lógica ao hook useTravelRequestForm.
-// Campos expandidos para o modelo v2 com fallback para legado.
+// Campos expandidos para o modelo v2 com suporte a seleção dinâmica.
 // ============================================================
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { TravelReason } from '../domain/enums';
 import { needsValidation } from '../domain/travelRequest.rules';
 import type { TravelRequest } from '../domain/types';
-import { useIdentity } from '../application/identity/IdentityContext';
-import { useTravelRequestForm } from '../application/hooks/useTravelRequestForm';
-import { useEmployeeIntegration } from '../application/hooks/useEmployeeIntegration';
-import { evaluateTravelPolicy } from '../application/use-cases/evaluateTravelPolicy';
-import { PolicyResult, PolicySeverity } from '../domain/policy/enums';
-import { PolicyDecision } from '../domain/policy/types';
-import { X, Save, Send, AlertCircle, Luggage, Search, Loader2, CheckCircle2, ShieldAlert } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { useIdentity } from '../application/identity/IdentityContext.tsx';
+import { useTravelRequestForm } from '../application/hooks/useTravelRequestForm.ts';
+import { useEmployeeIntegration } from '../application/hooks/useEmployeeIntegration.ts';
+import { usePolicyEvaluation } from '../application/hooks/usePolicyEvaluation.ts';
+import { PolicyResult } from '../domain/policy/enums.ts';
+import { X, Save, Send, Luggage, Search, Loader2, CheckCircle2, ShieldAlert, Landmark } from 'lucide-react';
+import { cn } from '../lib/utils.ts';
 
 // ──────────────────────────────────────────────
 // Props
@@ -35,11 +34,12 @@ interface FieldProps {
   required?: boolean;
   children: React.ReactNode;
   hint?: string;
+  className?: string;
 }
 
-function Field({ label, required, children, hint }: FieldProps) {
+function Field({ label, required, children, hint, className }: FieldProps) {
   return (
-    <div className="space-y-2">
+    <div className={cn("space-y-2", className)}>
       <label className="text-sm font-semibold text-slate-700">
         {label}
         {required && <span className="text-red-500 ml-0.5">*</span>}
@@ -50,348 +50,286 @@ function Field({ label, required, children, hint }: FieldProps) {
   );
 }
 
-const INPUT_CLASS =
-  'w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none text-sm';
-
 const SELECT_CLASS =
   'w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none bg-white text-sm';
 
+const INPUT_CLASS =
+  'w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none text-sm';
+
 // ──────────────────────────────────────────────
-// Componente
+// Componente principal
 // ──────────────────────────────────────────────
 
 export function TravelForm({ onClose, editingRequest }: TravelFormProps) {
   const { currentUser } = useIdentity();
-  const { formData, loading, setField, saveDraft, submit } = useTravelRequestForm(
+  const { formData, loading: formLoading, setField, saveDraft, submit } = useTravelRequestForm(
     editingRequest,
     currentUser,
     onClose
   );
 
+  // Integração com RM TOTVS
   const { 
     loading: lookupLoading, 
-    error: lookupError, 
+    costCenters, 
+    employees, 
     data: integrationData, 
+    fetchEmployees,
     lookupEmployee 
   } = useEmployeeIntegration();
 
-  const [policyDecision, setPolicyDecision] = React.useState<PolicyDecision | null>(null);
+  // 3. Avaliação de Política (Delegada para Hook de Aplicação - Sprint 1)
+  const { policyDecision } = usePolicyEvaluation(formData, integrationData);
 
-  // Efeito para auto-hidratação e avaliação de política
-  React.useEffect(() => {
-    if (integrationData) {
-      setField('employeeName', integrationData.employeeInfo.employeeName);
-      setField('functionName', integrationData.employeeInfo.functionName || '');
-    }
-  }, [integrationData, setField]);
+  // 4. Manipuladores de Eventos de UI
+  const handleCostCenterChange = (ccCode: string) => {
+    setField('costCenter', ccCode);
+    setField('chapa', ''); // Reseta colaborador ao mudar CC
+    setField('employeeName', '');
+    fetchEmployees(ccCode);
+  };
 
-  // Re-avalia a política sempre que dados críticos mudarem
-  React.useEffect(() => {
-    // Só avalia se houver dados de integração ou se for motivo não crítico
-    const decision = evaluateTravelPolicy(
-      formData.reason,
-      formData.leaveStartDate || formData.departureDateTime ? formData.departureDateTime.split('T')[0] : '',
-      formData.leaveEndDate || formData.departureDateTime.split('T')[0],
-      integrationData
-    );
-    setPolicyDecision(decision);
-  }, [formData.reason, formData.leaveStartDate, formData.leaveEndDate, formData.departureDateTime, integrationData]);
-
-  const handleLookup = () => {
-    if (formData.chapa) {
-      lookupEmployee(formData.chapa);
+  const handleEmployeeChange = (chapa: string) => {
+    const selected = employees.find(e => e.chapa === chapa);
+    if (selected) {
+      setField('chapa', selected.chapa);
+      setField('employeeName', selected.name);
+      setField('functionName', selected.role);
+      lookupEmployee(selected.chapa);
     }
   };
 
-  const isLeaveReason = needsValidation(formData.reason);
-  
-  // Bloqueio de submissão se houver violação de política (BLOCK)
-  const hasBlockingViolation = policyDecision?.result === PolicyResult.REJECTED || 
-                             policyDecision?.violations.some(v => v.severity === PolicySeverity.BLOCK);
-
-  const handleSave = () => saveDraft(policyDecision || undefined);
-  const handleSubmit = () => submit(policyDecision || undefined);
+  const isHRReason = [TravelReason.FERIAS, TravelReason.FOLGA, TravelReason.FOLGA_FERIAS].includes(formData.reason);
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4">
-      {/* Header */}
-      <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-        <h2 className="text-lg font-bold text-slate-900">
-          {editingRequest ? 'Editar Solicitação' : 'Nova Solicitação de Viagem'}
-        </h2>
-        <button
-          onClick={onClose}
-          className="p-2 hover:bg-slate-200 rounded-full transition-colors"
-          aria-label="Fechar formulário"
-        >
-          <X className="w-5 h-5 text-slate-500" />
-        </button>
-      </div>
-
-      <div className="p-8 space-y-8 max-h-[75vh] overflow-y-auto">
-
-        {/* ─── Seção: Dados do Colaborador ─── */}
-        <section>
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
-            Dados do Colaborador
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Field label="CHAPA" hint="Código interno Protheus">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={formData.chapa}
-                  onChange={(e) => setField('chapa', e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
-                  className={INPUT_CLASS}
-                  placeholder="Ex: 000123"
-                />
-                <button
-                  type="button"
-                  onClick={handleLookup}
-                  disabled={lookupLoading || !formData.chapa}
-                  className="px-4 py-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all border border-blue-200 flex items-center justify-center min-w-[48px]"
-                >
-                  {lookupLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                </button>
+    <div className="w-full h-full animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col">
+      <div className="bg-white w-full rounded-[32px] border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+        
+        {/* Cabeçalho — Integrado com Botão Voltar */}
+        <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-6">
+            <button 
+              onClick={onClose}
+              className="p-3 hover:bg-slate-200 rounded-2xl transition-all text-slate-500 bg-white border border-slate-100 shadow-sm group"
+              title="Voltar para a lista"
+            >
+              <X className="w-6 h-6 group-hover:scale-95 transition-transform" />
+            </button>
+            <div className="flex items-center gap-4 border-l border-slate-200 pl-6">
+              <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg border border-blue-400">
+                 <Luggage className="w-6 h-6" />
               </div>
-            </Field>
-            <Field label="Nome do Passageiro" required>
-              <input
-                type="text"
-                value={formData.employeeName}
-                onChange={(e) => setField('employeeName', e.target.value)}
-                className={INPUT_CLASS}
-                placeholder="Nome completo"
-              />
-            </Field>
-            <Field label="Função / Cargo">
-              <input
-                type="text"
-                value={formData.functionName}
-                onChange={(e) => setField('functionName', e.target.value)}
-                className={INPUT_CLASS}
-                placeholder="Ex: Técnico de Campo"
-              />
-            </Field>
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900 tracking-tight leading-tight">
+                  {editingRequest ? 'Editar Solicitação' : 'Nova Solicitação de Viagem'}
+                </h2>
+                <p className="text-slate-500 text-sm italic">Ambiente corporativo de programação de vôos e logística.</p>
+              </div>
+            </div>
           </div>
-        </section>
+        </div>
 
-        {/* ─── Seção: Dados da Viagem ─── */}
-        <section>
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
-            Dados da Viagem
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Field label="Motivo da Viagem" required>
-              <select
-                value={formData.reason}
-                onChange={(e) => setField('reason', e.target.value as TravelReason)}
-                className={SELECT_CLASS}
+        {/* Formulário SCROLLABLE */}
+        <div className="p-10 overflow-y-auto space-y-10 custom-scrollbar">
+          
+          {/* SEÇÃO 1: DADOS DO COLABORADOR (NOVA LÓGICA) */}
+          <section className="space-y-6">
+            <div className="flex items-center gap-2 text-blue-600">
+               <Landmark className="w-5 h-5" />
+               <h3 className="font-bold text-xs uppercase tracking-[0.2em]">Sincronização RM TOTVS</h3>
+               <div className="h-px flex-1 bg-slate-100 ml-2" />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-blue-50/30 p-8 rounded-[28px] border border-blue-100/50">
+              <Field label="1. Selecione o Centro de Custo" required hint="Filtra a lista de colaboradores oficiais da unidade.">
+                <select 
+                  className={SELECT_CLASS}
+                  value={formData.costCenter}
+                  onChange={(e) => handleCostCenterChange(e.target.value)}
+                >
+                  <option value="">Selecione centro de custo...</option>
+                  {costCenters.map(cc => (
+                    <option key={cc.code} value={cc.code}>{cc.label}</option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field 
+                label="2. Selecione o Colaborador" 
+                required 
+                hint="As informações de política serão carregadas automaticamente."
+                className={cn(!formData.costCenter && "opacity-50 pointer-events-none")}
               >
-                {Object.values(TravelReason).map((r) => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
-              {isLeaveReason && (
-                <div className="flex items-center gap-2 text-[11px] text-amber-600 font-medium mt-1.5">
-                  <AlertCircle className="w-3 h-3" />
-                  Exige validação do Capital Humano
-                </div>
-              )}
-            </Field>
-
-            <Field label="Responsável / Gestor">
-              <input
-                type="text"
-                value={formData.managerName}
-                onChange={(e) => setField('managerName', e.target.value)}
-                className={INPUT_CLASS}
-                placeholder="Nome do gestor responsável"
-              />
-            </Field>
-
-            <Field label="Origem" required>
-              <input
-                type="text"
-                value={formData.origin}
-                onChange={(e) => setField('origin', e.target.value)}
-                className={INPUT_CLASS}
-                placeholder="Ex: São Paulo (GRU)"
-              />
-            </Field>
-
-            <Field label="Destino" required>
-              <input
-                type="text"
-                value={formData.destination}
-                onChange={(e) => setField('destination', e.target.value)}
-                className={INPUT_CLASS}
-                placeholder="Ex: Rio de Janeiro (SDU)"
-              />
-            </Field>
-
-            <Field label="Data e Hora de Ida" required>
-              <input
-                type="datetime-local"
-                value={formData.departureDateTime}
-                onChange={(e) => setField('departureDateTime', e.target.value)}
-                className={INPUT_CLASS}
-              />
-            </Field>
-
-            <Field label="Data e Hora de Volta (Opcional)">
-              <input
-                type="datetime-local"
-                value={formData.returnDateTime}
-                onChange={(e) => setField('returnDateTime', e.target.value)}
-                className={INPUT_CLASS}
-              />
-            </Field>
-
-            <Field label="Centro de Custo" required>
-              <input
-                type="text"
-                value={formData.costCenter}
-                onChange={(e) => setField('costCenter', e.target.value)}
-                className={INPUT_CLASS}
-                placeholder="Ex: 102030 - Operações"
-              />
-            </Field>
-
-            <Field label="Código do Projeto">
-              <input
-                type="text"
-                value={formData.projectCode}
-                onChange={(e) => setField('projectCode', e.target.value)}
-                className={INPUT_CLASS}
-                placeholder="Ex: PRJ-2024-001"
-              />
-            </Field>
-          </div>
-
-          {/* Bagagem */}
-          <div className="mt-4 flex items-center gap-3">
-            <input
-              id="baggageRequired"
-              type="checkbox"
-              checked={formData.baggageRequired}
-              onChange={(e) => setField('baggageRequired', e.target.checked)}
-              className="w-4 h-4 accent-blue-600 rounded"
-            />
-            <label htmlFor="baggageRequired" className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
-              <Luggage className="w-4 h-4 text-slate-400" />
-              Necessita despacho de bagagem
-            </label>
-          </div>
-          {/* Mensagens de Integração e Política */}
-          {(lookupError || policyDecision) && (
-            <div className={cn(
-              "p-5 rounded-2xl border text-sm mt-6 transition-all",
-              lookupError || policyDecision?.result === PolicyResult.REJECTED 
-                ? "bg-red-50 border-red-100 text-red-700" 
-                : policyDecision?.result === PolicyResult.MANUAL_VALIDATION 
-                ? "bg-amber-50 border-amber-100 text-amber-700"
-                : "bg-emerald-50 border-emerald-100 text-emerald-700"
-            )}>
-              {lookupError ? (
-                <div className="flex items-center gap-3">
-                  <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                  <span>{lookupError}</span>
-                </div>
-              ) : policyDecision && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 font-bold text-base">
-                    {policyDecision.result === PolicyResult.APPROVED ? (
-                      <CheckCircle2 className="w-5 h-5" />
-                    ) : (
-                      <ShieldAlert className="w-5 h-5" />
-                    )}
-                    <span>{policyDecision.summary}</span>
-                  </div>
-
-                  {/* Detalhes de violações */}
-                  {(policyDecision.violations.length > 0 || policyDecision.warnings.length > 0) && (
-                    <ul className="space-y-1.5 list-disc pl-5 opacity-90 font-medium">
-                      {policyDecision.violations.map((v, i) => (
-                        <li key={`v-${i}`}>{v.message}</li>
-                      ))}
-                      {policyDecision.warnings.map((w, i) => (
-                        <li key={`w-${i}`} className="italic">{w.message}</li>
-                      ))}
-                    </ul>
-                  )}
-                  
-                  {policyDecision.result === PolicyResult.MANUAL_VALIDATION && (
-                    <p className="text-[11px] font-bold uppercase tracking-wider opacity-60">
-                      Esta solicitação será encaminhada para análise do Capital Humano.
-                    </p>
+                <div className="relative">
+                  <select 
+                    className={cn(SELECT_CLASS, lookupLoading && "pr-10")}
+                    value={formData.chapa}
+                    onChange={(e) => handleEmployeeChange(e.target.value)}
+                  >
+                    <option value="">Selecione o colaborador...</option>
+                    {employees.map(e => (
+                      <option key={e.chapa} value={e.chapa}>{e.name} ({e.chapa})</option>
+                    ))}
+                  </select>
+                  {lookupLoading && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                    </div>
                   )}
                 </div>
-              )}
+              </Field>
             </div>
-          )}
-        </section>
 
-        {/* ─── Seção: Período de Folga / Férias (condicional) ─── */}
-        {isLeaveReason && (
-          <section className="bg-amber-50 border border-amber-100 rounded-2xl p-6">
-            <h3 className="text-xs font-bold text-amber-700 uppercase tracking-widest mb-4 flex items-center gap-2">
-              <AlertCircle className="w-3.5 h-3.5" />
-              Período de Folga / Férias
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Field label="Início do Período" required>
-                <input
-                  type="date"
-                  value={formData.leaveStartDate}
-                  onChange={(e) => setField('leaveStartDate', e.target.value)}
-                  className={INPUT_CLASS}
-                />
-              </Field>
-              <Field label="Fim do Período" required>
-                <input
-                  type="date"
-                  value={formData.leaveEndDate}
-                  onChange={(e) => setField('leaveEndDate', e.target.value)}
-                  className={INPUT_CLASS}
-                />
-              </Field>
-            </div>
+            {/* Resultado da Política (Policy Engine) */}
+            {formData.chapa && (
+              <div className={cn(
+                "p-6 rounded-[24px] border transition-all duration-500 flex gap-4",
+                !policyDecision 
+                  ? "bg-slate-50 border-slate-100" 
+                  : policyDecision.result === PolicyResult.REJECTED ? "bg-red-50/50 border-red-100/50" :
+                    policyDecision.result === PolicyResult.MANUAL_VALIDATION ? "bg-amber-50/50 border-amber-100/50" :
+                    "bg-emerald-50/50 border-emerald-100/50"
+              )}>
+                <div className={cn(
+                  "w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm shrink-0",
+                  !policyDecision ? "bg-white text-slate-400" :
+                  policyDecision.result === PolicyResult.REJECTED ? "bg-red-100 text-red-600" :
+                  policyDecision.result === PolicyResult.MANUAL_VALIDATION ? "bg-amber-100 text-amber-600" :
+                  "bg-emerald-100 text-emerald-600"
+                )}>
+                  {!policyDecision ? <Search className="w-6 h-6" /> :
+                   policyDecision.result === PolicyResult.APPROVED ? <CheckCircle2 className="w-6 h-6" /> : 
+                   <ShieldAlert className="w-6 h-6" />}
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-bold text-slate-900 text-sm tracking-tight italic">Status da Política Corporativa</h4>
+                  <p className="text-xs font-medium text-slate-600 leading-relaxed uppercase tracking-widest">
+                    {policyDecision ? policyDecision.summary : "Aguardando preenchimento das datas para validação..."}
+                  </p>
+                </div>
+              </div>
+            )}
           </section>
-        )}
 
-        {/* ─── Justificativa ─── */}
-        <section>
-          <Field label="Justificativa">
-            <textarea
-              value={formData.justification}
-              onChange={(e) => setField('justification', e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none min-h-[90px] text-sm"
-              placeholder="Descreva a necessidade da viagem..."
-            />
-          </Field>
-        </section>
-      </div>
+          {/* SEÇÃO 2: DADOS DA VIAGEM */}
+          <section className="space-y-6">
+            <div className="flex items-center gap-2 text-slate-400">
+               <Luggage className="w-5 h-5" />
+               <h3 className="font-bold text-xs uppercase tracking-[0.2em]">Itinerário e Logística</h3>
+               <div className="h-px flex-1 bg-slate-100 ml-2" />
+            </div>
 
-      {/* Footer com ações */}
-      <div className="px-8 py-6 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-4">
-        <button
-          onClick={handleSave}
-          disabled={loading}
-          className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-200 transition-all disabled:opacity-50"
-        >
-          <Save className="w-4 h-4" />
-          Salvar Rascunho
-        </button>
-        <button
-          onClick={handleSubmit}
-          disabled={loading || lookupLoading || !formData.employeeName || !formData.destination || !formData.departureDateTime || hasBlockingViolation}
-          className="flex items-center gap-2 px-8 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all disabled:opacity-50"
-        >
-          <Send className="w-4 h-4" />
-          {loading ? 'Enviando...' : 'Enviar Solicitação'}
-        </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <Field label="Motivo da Viagem" required>
+                <select 
+                  className={SELECT_CLASS}
+                  value={formData.reason}
+                  onChange={(e) => setField('reason', e.target.value as TravelReason)}
+                >
+                  {Object.values(TravelReason).map(r => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Bagagem Despachada" required>
+                 <div className="flex gap-4 p-1 bg-slate-50 rounded-xl border border-slate-100">
+                    <button 
+                      onClick={() => setField('baggageRequired', true)}
+                      className={cn("flex-1 py-1.5 rounded-lg text-xs font-bold transition-all", formData.baggageRequired ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600")}
+                    >SIM</button>
+                    <button 
+                      onClick={() => setField('baggageRequired', false)}
+                      className={cn("flex-1 py-1.5 rounded-lg text-xs font-bold transition-all", !formData.baggageRequired ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600")}
+                    >NÃO</button>
+                 </div>
+              </Field>
+
+              <Field label="Origem" required>
+                <input 
+                  className={INPUT_CLASS} 
+                  placeholder="Ex: Curitiba (CWB)"
+                  value={formData.origin}
+                  onChange={(e) => setField('origin', e.target.value)}
+                />
+              </Field>
+              <Field label="Destino" required>
+                <input 
+                  className={INPUT_CLASS} 
+                  placeholder="Ex: Salvador (SSA)"
+                  value={formData.destination}
+                  onChange={(e) => setField('destination', e.target.value)}
+                />
+              </Field>
+
+              <Field label="Partida" required>
+                <input 
+                  type="datetime-local"
+                  className={INPUT_CLASS} 
+                  value={formData.departureDateTime}
+                  onChange={(e) => setField('departureDateTime', e.target.value)}
+                />
+              </Field>
+              <Field label="Retorno" hint="Opcional para trechos somente ida">
+                <input 
+                  type="datetime-local"
+                  className={INPUT_CLASS} 
+                  value={formData.returnDateTime}
+                  onChange={(e) => setField('returnDateTime', e.target.value)}
+                />
+              </Field>
+            </div>
+
+            {/* Campos Condicionais CH (FÉRIAS/FOLGA) */}
+            {isHRReason && (
+              <div className="animate-in slide-in-from-top-4 duration-300 grid grid-cols-1 md:grid-cols-2 gap-8 p-8 bg-amber-50/30 rounded-[28px] border border-amber-100/50">
+                 <Field label="Início Afastamento (RM)" required hint="Deve coincidir com período no sistema">
+                    <input 
+                      type="date"
+                      className={INPUT_CLASS} 
+                      value={formData.leaveStartDate}
+                      onChange={(e) => setField('leaveStartDate', e.target.value)}
+                    />
+                 </Field>
+                 <Field label="Fim Afastamento (RM)" required hint="Deve coincidir com período no sistema">
+                    <input 
+                      type="date"
+                      className={INPUT_CLASS} 
+                      value={formData.leaveEndDate}
+                      onChange={(e) => setField('leaveEndDate', e.target.value)}
+                    />
+                 </Field>
+              </div>
+            )}
+            
+            <Field label="Justificativa da Viagem" required hint="Motivo real da viagem no local.">
+              <textarea 
+                className={cn(INPUT_CLASS, "min-h-[100px] resize-none")}
+                placeholder="Descreva brevemente o propósito da viagem..."
+                value={formData.justification}
+                onChange={(e) => setField('justification', e.target.value)}
+              />
+            </Field>
+          </section>
+        </div>
+
+        {/* Rodapé — Ações */}
+        <div className="px-10 py-8 border-t border-slate-100 flex items-center justify-end gap-4 bg-slate-50/50">
+           <button 
+             onClick={() => saveDraft(policyDecision || undefined)}
+             className="px-8 py-3 rounded-2xl text-sm font-bold text-slate-500 hover:bg-slate-200 transition-all flex items-center gap-2"
+           >
+             <Save className="w-5 h-5" />
+             SALVAR RASCUNHO
+           </button>
+           <button 
+             onClick={() => submit(policyDecision || undefined)}
+             className="px-8 py-3 bg-blue-600 text-white rounded-2xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center gap-2"
+           >
+             <Send className="w-5 h-5" />
+             ENVIAR SOLICITAÇÃO
+           </button>
+        </div>
       </div>
     </div>
   );
