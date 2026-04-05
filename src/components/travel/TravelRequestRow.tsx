@@ -14,6 +14,7 @@ import { cn } from '../../lib/utils.ts';
 import { UserRole } from '../../domain/enums.ts';
 
 interface TravelRequestRowProps {
+  key?: string;
   request: TravelRequest;
   currentUserRole: UserRole;
   onViewDetails: (req: TravelRequest) => void;
