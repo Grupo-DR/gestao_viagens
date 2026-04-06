@@ -27,6 +27,7 @@ import type {
 } from '../../domain/types';
 import { PolicyDecision } from '../../domain/policy/types';
 import { suggestNextStatus } from '../use-cases/evaluateTravelPolicy';
+import { deriveTravelSummaryFromSegments } from '../../domain/travelSegment.helpers';
 
 const COLLECTION = 'travelRequests';
 
@@ -102,14 +103,10 @@ export async function createTravelRequest(
     },
     travel: {
       reason: formData.reason,
-      segments: formData.segments, // Novo campo v3
+      segments: formData.segments, // Fonte de verdade v3
       
-      // Campos derivados (Auto-sincronizados pelo Hook ou Helper)
-      origin: formData.origin,
-      destination: formData.destination,
-      departureDateTime: formData.departureDateTime,
-      returnDateTime: formData.returnDateTime || null,
-      baggageRequired: formData.baggageRequired,
+      // Campos derivados (Recalculados no Service para máxima consistência)
+      ...deriveTravelSummaryFromSegments(formData.segments),
       
       costCenter: formData.costCenter,
       projectCode: formData.projectCode || null,
@@ -184,12 +181,11 @@ export async function updateTravelRequest(
       'employee.employeeName': formData.employeeName,
       'employee.functionName': formData.functionName,
       'travel.reason': formData.reason,
-      'travel.segments': formData.segments, // Atualização v3
-      'travel.origin': formData.origin,
-      'travel.destination': formData.destination,
-      'travel.departureDateTime': formData.departureDateTime,
-      'travel.returnDateTime': formData.returnDateTime || null,
-      'travel.baggageRequired': formData.baggageRequired,
+      'travel.segments': formData.segments, // Fonte de verdade v3
+      
+      // Campos derivados (Recalculados no Service para máxima consistência)
+      ...deriveTravelSummaryFromSegments(formData.segments),
+      
       'travel.costCenter': formData.costCenter,
       'travel.projectCode': formData.projectCode || null,
       'travel.managerName': formData.managerName || null,

@@ -7,9 +7,10 @@ import { cn } from '../../../lib/utils.ts';
 interface TravelItinerarySectionProps {
   segments: TravelSegment[];
   justification: string;
+  segmentErrors?: Record<string, string[]>;
   onAddSegment: () => void;
   onRemoveSegment: (id: string) => void;
-  onUpdateSegment: (id: string, field: keyof TravelSegment, value: any) => void;
+  onUpdateSegment: <K extends keyof TravelSegment>(id: string, field: K, value: TravelSegment[K]) => void;
   onFieldChange: (field: string, value: any) => void;
 }
 
@@ -23,6 +24,7 @@ const INPUT_CLASS =
 export function TravelItinerarySection({
   segments,
   justification,
+  segmentErrors = {},
   onAddSegment,
   onRemoveSegment,
   onUpdateSegment,
@@ -58,6 +60,7 @@ export function TravelItinerarySection({
             segment={segment}
             index={index}
             totalSegments={segments.length}
+            errors={segmentErrors[segment.id]}
             onUpdate={onUpdateSegment}
             onRemove={onRemoveSegment}
           />

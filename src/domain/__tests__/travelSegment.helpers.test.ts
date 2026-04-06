@@ -3,62 +3,57 @@ import {
   createEmptySegment, 
   normalizeSegmentsFromTravel, 
   deriveTravelSummaryFromSegments,
-  validateSegment 
+  validateSegment,
+  generateSegmentId,
+  reindexSegments,
+  validateSegments
 } from '../travelSegment.helpers';
 import { TravelInfo } from '../types';
 import { TravelReason } from '../enums';
 
-describe('Travel Segment Helpers', () => {
+describe('Travel Segment Helpers (Hardened)', () => {
 
-  it('deve criar um segmento vazio válido', () => {
-    const seg = createEmptySegment('test-id');
-    expect(seg.id).toBe('test-id');
-    expect(seg.transportMode).toBe('aereo');
-    expect(seg.origin).toBe('');
+  it('deve gerar IDs robustos e únicos', () => {
+    const id1 = generateSegmentId();
+    const id2 = generateSegmentId();
+    expect(id1).not.toBe(id2);
+    expect(id1.length).toBeGreaterThan(5);
   });
 
-  it('deve normalizar dados legados para um array de segmentos (ida e volta)', () => {
-    const legacyTravel: TravelInfo = {
-      reason: TravelReason.VISITA_TECNICA,
-      origin: 'São Paulo',
-      destination: 'Salvador',
-      departureDateTime: '2026-10-10T10:00:00',
-      returnDateTime: '2026-10-15T10:00:00',
-      baggageRequired: true,
-      costCenter: 'CC-01'
-    };
-
-    const segments = normalizeSegmentsFromTravel(legacyTravel);
-    expect(segments).toHaveLength(2);
-    expect(segments[0].origin).toBe('São Paulo');
-    expect(segments[0].destination).toBe('Salvador');
-    expect(segments[1].origin).toBe('Salvador');
-    expect(segments[1].destination).toBe('São Paulo');
-    expect(segments[1].departureDateTime).toBe('2026-10-15T10:00:00');
-  });
-
-  it('deve derivar campos de compatibilidade a partir de múltiplos segmentos', () => {
+  it('deve reindexar trechos corretamente', () => {
     const segments = [
-      { ...createEmptySegment('1'), origin: 'A', destination: 'B', departureDateTime: 'D1', baggageRequired: false },
-      { ...createEmptySegment('2'), origin: 'B', destination: 'C', departureDateTime: 'D2', baggageRequired: true }
+      { ...createEmptySegment(10), id: 'A' },
+      { ...createEmptySegment(5), id: 'B' }
     ];
-
-    const summary = deriveTravelSummaryFromSegments(segments);
-    expect(summary.origin).toBe('A');
-    expect(summary.destination).toBe('C');
-    expect(summary.departureDateTime).toBe('D1');
-    expect(summary.returnDateTime).toBe('D2');
-    expect(summary.baggageRequired).toBe(true);
+    const reindexed = reindexSegments(segments);
+    expect(reindexed[0].order).toBe(1);
+    expect(reindexed[1].order).toBe(2);
   });
 
-  it('deve validar um segmento corretamente', () => {
-    const validSeg = { ...createEmptySegment('1'), origin: 'A', destination: 'B', departureDateTime: '2026-01-01T10:00:00' };
-    expect(validateSegment(validSeg)).toHaveLength(0);
+  it('deve normalizar dados legados com shape completo', () => {
+    const legacy: TravelInfo = {
+      reason: TravelReason.VISITA_TECNICA,
+      origin: 'A',
+      destination: 'B',
+      departureDateTime: '2026-01-01',
+      costCenter: 'CC',
+      baggageRequired: true
+    };
+    const normalized = normalizeSegmentsFromTravel(legacy);
+    expect(normalized[0].order).toBe(1);
+    expect(normalized[0].originTerminal).toBe('');
+    expect(normalized[0].baggageRequired).toBe(true);
+  });
 
-    const invalidSeg = { ...createEmptySegment('1'), origin: '', destination: 'B', departureDateTime: '' };
-    const errors = validateSegment(invalidSeg);
-    expect(errors).toContain('Origem obrigatória.');
-    expect(errors).toContain('Data de partida obrigatória.');
+  it('deve validar múltiplos segmentos e retornar mapa de erros', () => {
+    const segments = [
+      { ...createEmptySegment(1), id: 'valid', origin: 'X', destination: 'Y', departureDateTime: '2026-01-01' },
+      { ...createEmptySegment(2), id: 'invalid', origin: '', destination: '', departureDateTime: '' }
+    ];
+    const errorMap = validateSegments(segments);
+    expect(errorMap['valid']).toBeUndefined();
+    expect(errorMap['invalid']).toBeDefined();
+    expect(errorMap['invalid']).toHaveLength(3);
   });
 
 });

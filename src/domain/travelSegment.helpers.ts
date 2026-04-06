@@ -1,11 +1,24 @@
-import { TravelSegment, TravelInfo, TransportMode } from './types';
+import { TravelSegment, TravelInfo } from './types';
 
 /**
- * Cria um trecho vazio com ID único.
+ * Gera um ID único para o trecho.
+ * Usa crypto.randomUUID() com fallback seguro.
  */
-export function createEmptySegment(id?: string): TravelSegment {
+export function generateSegmentId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `seg-${Math.random().toString(36).substring(2, 9)}-${Date.now()}`;
+}
+
+/**
+ * Cria um trecho vazio com ID robusto e ordem definida.
+ * Garante que todos os campos opcionais tenham valores iniciais de string vazia.
+ */
+export function createEmptySegment(order: number): TravelSegment {
   return {
-    id: id || Math.random().toString(36).substring(2, 9),
+    id: generateSegmentId(),
+    order,
     transportMode: 'aereo',
     origin: '',
     originTerminal: '',
@@ -18,24 +31,39 @@ export function createEmptySegment(id?: string): TravelSegment {
 }
 
 /**
+ * Reindexa a ordem dos trechos sequencialmente (1, 2, 3...).
+ * Essencial após remoção de trechos intermediários.
+ */
+export function reindexSegments(segments: TravelSegment[]): TravelSegment[] {
+  return segments.map((s, idx) => ({
+    ...s,
+    order: idx + 1
+  }));
+}
+
+/**
  * Normaliza segmentos a partir de uma estrutura de viagem (lida dados legados).
- * Se já houver segmentos, retorna-os. Caso contrário, cria a partir dos campos raiz.
+ * Se já houver segmentos, retorna-os reindexados.
+ * Caso contrário, cria a partir dos campos raiz v2 com shape completo.
  */
 export function normalizeSegmentsFromTravel(travel: TravelInfo): TravelSegment[] {
   if (travel.segments && travel.segments.length > 0) {
-    return travel.segments;
+    return reindexSegments(travel.segments);
   }
 
-  // Fallback para dados legados (origin/destination/returnDateTime)
   const segments: TravelSegment[] = [];
   
   // Segmento 1: Ida
   segments.push({
     id: 'legacy-1',
+    order: 1,
     transportMode: 'aereo',
     origin: travel.origin || '',
+    originTerminal: '',
     destination: travel.destination || '',
+    destinationTerminal: '',
     departureDateTime: travel.departureDateTime || '',
+    arrivalDateTime: '',
     baggageRequired: travel.baggageRequired || false,
   });
 
@@ -43,10 +71,14 @@ export function normalizeSegmentsFromTravel(travel: TravelInfo): TravelSegment[]
   if (travel.returnDateTime) {
     segments.push({
       id: 'legacy-2',
+      order: 2,
       transportMode: 'aereo',
       origin: travel.destination || '',
+      originTerminal: '',
       destination: travel.origin || '',
+      destinationTerminal: '',
       departureDateTime: travel.returnDateTime,
+      arrivalDateTime: '',
       baggageRequired: travel.baggageRequired || false,
     });
   }
@@ -56,6 +88,7 @@ export function normalizeSegmentsFromTravel(travel: TravelInfo): TravelSegment[]
 
 /**
  * Deriva campos sumários (compatibilidade) a partir da lista de trechos.
+ * Útil para persistência duo-mode e relatórios legados.
  */
 export function deriveTravelSummaryFromSegments(segments: TravelSegment[]): {
   origin: string;
@@ -73,36 +106,51 @@ export function deriveTravelSummaryFromSegments(segments: TravelSegment[]): {
     };
   }
 
-  const first = segments[0];
-  const last = segments[segments.length - 1];
+  // Garante que usamos a ordem real
+  const sorted = [...segments].sort((a, b) => a.order - b.order);
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
 
   return {
     origin: first.origin,
     destination: last.destination,
     departureDateTime: first.departureDateTime,
-    // Se houver mais de um trecho, o "return" legado é a partida do último trecho
-    returnDateTime: segments.length > 1 ? last.departureDateTime : undefined,
-    // Se QUALQUER trecho exigir bagagem, o campo global de rascunho/legado marca como true
-    baggageRequired: segments.some(s => s.baggageRequired),
+    returnDateTime: sorted.length > 1 ? last.departureDateTime : undefined,
+    baggageRequired: sorted.some(s => s.baggageRequired),
   };
 }
 
 /**
  * Valida um trecho individual.
- * Retorna lista de erros (vazia se válido).
  */
 export function validateSegment(segment: TravelSegment): string[] {
   const errors: string[] = [];
 
-  if (!segment.origin) errors.push('Origem obrigatória.');
-  if (!segment.destination) errors.push('Destino obrigatório.');
+  if (!segment.origin.trim()) errors.push('Origem obrigatória.');
+  if (!segment.destination.trim()) errors.push('Destino obrigatório.');
   if (!segment.departureDateTime) errors.push('Data de partida obrigatória.');
 
   if (segment.departureDateTime && segment.arrivalDateTime) {
     if (new Date(segment.arrivalDateTime) <= new Date(segment.departureDateTime)) {
-      errors.push('Data de chegada deve ser posterior à partida.');
+      errors.push('Chegada deve ser posterior à partida.');
     }
   }
 
   return errors;
+}
+
+/**
+ * Validação em lote: retorna mapa de erros por ID de segmento.
+ */
+export function validateSegments(segments: TravelSegment[]): Record<string, string[]> {
+  const errorMap: Record<string, string[]> = {};
+  
+  segments.forEach(seg => {
+    const errors = validateSegment(seg);
+    if (errors.length > 0) {
+      errorMap[seg.id] = errors;
+    }
+  });
+
+  return errorMap;
 }

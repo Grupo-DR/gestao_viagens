@@ -31,6 +31,7 @@ export function TravelForm({ onClose, editingRequest }: TravelFormProps) {
   const { 
     formData, 
     loading: formLoading, 
+    errors,
     setField, 
     addSegment,
     removeSegment,
@@ -133,6 +134,7 @@ export function TravelForm({ onClose, editingRequest }: TravelFormProps) {
           <TravelItinerarySection 
             segments={formData.segments}
             justification={formData.justification}
+            segmentErrors={errors}
             onAddSegment={addSegment}
             onRemoveSegment={removeSegment}
             onUpdateSegment={updateSegment}

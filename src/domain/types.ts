@@ -53,9 +53,9 @@ export interface EmployeeInfo {
 
 export type TransportMode = 'aereo' | 'rodoviario';
 
-/** Dados de um trecho individual da viagem */
 export interface TravelSegment {
   id: string;
+  order: number; // Ordem sequencial (1, 2, 3...)
   transportMode: TransportMode;
   origin: string;
   originTerminal?: string; // Ex: Aeroporto de Guarulhos, Rodoviária do Tietê

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plane, Bus, Trash2, MapPin, Calendar, Luggage } from 'lucide-react';
+import { Plane, Bus, Trash2, MapPin, Calendar, Luggage, AlertCircle } from 'lucide-react';
 import { TravelSegment, TransportMode } from '../../../domain/types';
 import { cn } from '../../../lib/utils.ts';
 
@@ -8,30 +8,41 @@ interface TravelSegmentCardProps {
   segment: TravelSegment;
   index: number;
   totalSegments: number;
-  onUpdate: (id: string, field: keyof TravelSegment, value: any) => void;
+  errors?: string[]; // Erros de validação deste trecho
+  onUpdate: <K extends keyof TravelSegment>(id: string, field: K, value: TravelSegment[K]) => void;
   onRemove: (id: string) => void;
 }
 
 const INPUT_CLASS = 
   'w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none text-sm font-bold text-slate-700 shadow-sm placeholder:text-slate-300';
 
+const ERROR_INPUT_CLASS = 'border-red-300 bg-red-50/10 focus:ring-red-500 focus:border-red-500';
+
 export function TravelSegmentCard({ 
   segment, 
   index, 
   totalSegments, 
+  errors = [],
   onUpdate, 
   onRemove 
 }: TravelSegmentCardProps) {
   const isAir = segment.transportMode === 'aereo';
+  const hasErrors = errors.length > 0;
 
   return (
-    <div className="relative bg-white rounded-[32px] border-2 border-slate-100 p-8 shadow-sm hover:shadow-md transition-all animate-in zoom-in-95 duration-300">
+    <div className={cn(
+      "relative bg-white rounded-[32px] border-2 p-8 shadow-sm transition-all animate-in zoom-in-95 duration-300",
+      hasErrors ? "border-red-100 shadow-red-50/50" : "border-slate-100 hover:shadow-md"
+    )}>
       
       {/* Header do Trecho */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-black text-sm shadow-lg">
-            {index + 1}
+          <div className={cn(
+            "w-10 h-10 rounded-full flex items-center justify-center font-black text-sm shadow-lg",
+            hasErrors ? "bg-red-500 text-white" : "bg-slate-900 text-white"
+          )}>
+            {segment.order}
           </div>
           <div>
             <h4 className="font-black text-xs uppercase tracking-widest text-slate-400">Trecho da Viagem</h4>
@@ -47,7 +58,7 @@ export function TravelSegmentCard({
           <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner">
             <button 
               type="button"
-              onClick={() => onUpdate(segment.id, 'transportMode', 'aereo' as TransportMode)}
+              onClick={() => onUpdate(segment.id, 'transportMode', 'aereo')}
               className={cn(
                 "px-4 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all uppercase flex items-center gap-2",
                 isAir ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
@@ -57,7 +68,7 @@ export function TravelSegmentCard({
             </button>
             <button 
               type="button"
-              onClick={() => onUpdate(segment.id, 'transportMode', 'rodoviario' as TransportMode)}
+              onClick={() => onUpdate(segment.id, 'transportMode', 'rodoviario')}
               className={cn(
                 "px-4 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all uppercase flex items-center gap-2",
                 !isAir ? "bg-white text-emerald-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
@@ -89,7 +100,7 @@ export function TravelSegmentCard({
             <MapPin className="w-3 h-3" /> Cidade de Origem
           </label>
           <input 
-            className={INPUT_CLASS} 
+            className={cn(INPUT_CLASS, !segment.origin.trim() && hasErrors && ERROR_INPUT_CLASS)} 
             placeholder="Ex: São Paulo"
             value={segment.origin}
             onChange={(e) => onUpdate(segment.id, 'origin', e.target.value)}
@@ -115,7 +126,7 @@ export function TravelSegmentCard({
              <MapPin className="w-3 h-3" /> Cidade de Destino
           </label>
           <input 
-            className={INPUT_CLASS} 
+            className={cn(INPUT_CLASS, !segment.destination.trim() && hasErrors && ERROR_INPUT_CLASS)} 
             placeholder="Ex: Salvador"
             value={segment.destination}
             onChange={(e) => onUpdate(segment.id, 'destination', e.target.value)}
@@ -142,7 +153,7 @@ export function TravelSegmentCard({
           </label>
           <input 
             type="datetime-local"
-            className={cn(INPUT_CLASS, "bg-blue-50/20 border-blue-100")} 
+            className={cn(INPUT_CLASS, "bg-blue-50/20 border-blue-100", !segment.departureDateTime && hasErrors && ERROR_INPUT_CLASS)} 
             value={segment.departureDateTime}
             onChange={(e) => onUpdate(segment.id, 'departureDateTime', e.target.value)}
           />
@@ -195,6 +206,17 @@ export function TravelSegmentCard({
            )}
         </div>
       </div>
+
+      {/* Erros do Trecho */}
+      {hasErrors && (
+        <div className="mt-6 p-4 bg-red-50 rounded-2xl border border-red-100 flex flex-col gap-1.5 animate-in slide-in-from-top-2">
+          {errors.map((msg, i) => (
+            <div key={i} className="flex items-center gap-2 text-red-600 font-bold text-[11px] uppercase tracking-wide">
+               <AlertCircle className="w-3 h-3" /> {msg}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
