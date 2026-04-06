@@ -51,14 +51,34 @@ export interface EmployeeInfo {
   directOrIndirect?: DirectOrIndirect;
 }
 
-/** Dados do trecho de viagem */
+export type TransportMode = 'aereo' | 'rodoviario';
+
+/** Dados de um trecho individual da viagem */
+export interface TravelSegment {
+  id: string;
+  transportMode: TransportMode;
+  origin: string;
+  originTerminal?: string; // Ex: Aeroporto de Guarulhos, Rodoviária do Tietê
+  destination: string;
+  destinationTerminal?: string;
+  departureDateTime: string;   // ISO 8601
+  arrivalDateTime?: string;     // ISO 8601 — opcional
+  baggageRequired: boolean;    // Aplicável apenas para aéreo
+}
+
+/** Dados do trecho de viagem (Agregador) */
 export interface TravelInfo {
   reason: TravelReason;
+  /** Lista de trechos ordenada — Fonte de verdade v3 */
+  segments?: TravelSegment[];
+  
+  // Campos derivados para compatibilidade legada
   origin: string;
   destination: string;
   departureDateTime: string;       // ISO 8601
   returnDateTime?: string;         // ISO 8601 — opcional (ida somente)
   baggageRequired: boolean;
+  
   costCenter: string;
   projectCode?: string;
   managerName?: string;
@@ -183,13 +203,17 @@ export interface TravelRequestFormData {
   employeeName: string;
   functionName: string;
 
-  // Travel
+  // Travel — Itinerário v3
   reason: TravelReason;
+  segments: TravelSegment[];
+  
+  // Campos derivados para compatibilidade legada
   origin: string;
   destination: string;
   departureDateTime: string;
   returnDateTime: string;
   baggageRequired: boolean;
+  
   costCenter: string;
   projectCode: string;
   managerName: string;

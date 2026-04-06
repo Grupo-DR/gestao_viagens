@@ -16,7 +16,7 @@ import { X, Luggage } from 'lucide-react';
 // Subcomponentes de Formulário
 import { EmployeeSelectionSection } from './travel/form/EmployeeSelectionSection.tsx';
 import { PolicyStatusCard } from './travel/form/PolicyStatusCard.tsx';
-import { TravelDetailsSection } from './travel/form/TravelDetailsSection.tsx';
+import { TravelItinerarySection } from './travel/form/TravelItinerarySection.tsx';
 import { TravelFormFooterActions } from './travel/form/TravelFormFooterActions.tsx';
 
 interface TravelFormProps {
@@ -28,7 +28,16 @@ export function TravelForm({ onClose, editingRequest }: TravelFormProps) {
   const { currentUser } = useIdentity();
   
   // 1. Hook de Estado do Formulário
-  const { formData, loading: formLoading, setField, saveDraft, submit } = useTravelRequestForm(
+  const { 
+    formData, 
+    loading: formLoading, 
+    setField, 
+    addSegment,
+    removeSegment,
+    updateSegment,
+    saveDraft, 
+    submit 
+  } = useTravelRequestForm(
     editingRequest,
     currentUser,
     onClose
@@ -120,14 +129,13 @@ export function TravelForm({ onClose, editingRequest }: TravelFormProps) {
             visible={!!formData.chapa}
           />
 
-          {/* SEÇÃO 3: LOGÍSTICA DE VIAGEM */}
-          <TravelDetailsSection 
-            baggageRequired={formData.baggageRequired}
-            origin={formData.origin}
-            destination={formData.destination}
-            departureDateTime={formData.departureDateTime}
-            returnDateTime={formData.returnDateTime}
+          {/* SEÇÃO 3: ITINERÁRIO (NOVO - MULTISEGMENTO) */}
+          <TravelItinerarySection 
+            segments={formData.segments}
             justification={formData.justification}
+            onAddSegment={addSegment}
+            onRemoveSegment={removeSegment}
+            onUpdateSegment={updateSegment}
             onFieldChange={setField}
           />
         </div>

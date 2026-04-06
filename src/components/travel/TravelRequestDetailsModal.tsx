@@ -8,6 +8,8 @@ import { PolicyDecisionPanel } from './PolicyDecisionPanel.tsx';
 import { AuditTimeline } from './AuditTimeline.tsx';
 import { PurchaseForm } from './PurchaseForm.tsx';
 import { cn } from '../../lib/utils.ts';
+import { Plane, Bus, MapPin, Luggage } from 'lucide-react';
+import { normalizeSegmentsFromTravel } from '../../domain/travelSegment.helpers';
 
 interface TravelRequestDetailsModalProps {
   request: TravelRequest;
@@ -91,20 +93,8 @@ export function TravelRequestDetailsModal({
               { label: 'CHAPA', value: request.employee.chapa || '—' },
               { label: 'Motivo', value: request.travel.reason },
               { label: 'Centro de Custo', value: request.travel.costCenter },
-              { label: 'Itinerário', value: formatRoute(request) },
-              { label: 'Projeto', value: request.travel.projectCode || 'Consumo Interno' },
-              {
-                label: 'Decolagem',
-                value: request.travel.departureDateTime
-                  ? format(new Date(request.travel.departureDateTime), 'dd/MM/yyyy HH:mm')
-                  : '—',
-              },
-              {
-                label: 'Retorno Previsto',
-                value: request.travel.returnDateTime
-                  ? format(new Date(request.travel.returnDateTime), 'dd/MM/yyyy HH:mm')
-                  : 'Só Ida',
-              },
+              { label: 'Rota Resumida', value: formatRoute(request) },
+              { label: 'Projeto', value: request.travel.projectCode || 'Consumo Interno' }
             ].map((item) => (
               <div key={item.label} className="group">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-1.5 transition-colors group-hover:text-blue-500">{item.label}</label>
@@ -112,6 +102,59 @@ export function TravelRequestDetailsModal({
               </div>
             ))}
           </div>
+
+          {/* SEÇÃO: ITINERÁRIO DETALHADO (VERSÃO V3) */}
+          <section className="space-y-4">
+             <div className="flex items-center gap-2">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Itinerário Detalhado</h4>
+                <div className="h-px flex-1 bg-slate-100" />
+             </div>
+             
+             <div className="space-y-4">
+                {normalizeSegmentsFromTravel(request.travel).map((seg, idx) => (
+                  <div key={seg.id} className="relative pl-8 pb-4 border-l-2 border-dashed border-slate-100 last:border-0 last:pb-0">
+                    <div className="absolute -left-[11px] top-0 w-5 h-5 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center text-[8px] font-black text-slate-400">
+                       {idx + 1}
+                    </div>
+                    
+                    <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-100/50">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          {seg.transportMode === 'aereo' ? <Plane className="w-3 h-3 text-blue-500" /> : <Bus className="w-3 h-3 text-emerald-500" />}
+                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{seg.transportMode}</span>
+                        </div>
+                        {seg.baggageRequired && (
+                          <div className="flex items-center gap-1 text-slate-400">
+                             <Luggage className="w-3 h-3" />
+                             <span className="text-[9px] font-bold">C/ Bagagem</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                         <div className="flex-1">
+                            <p className="text-xs font-bold text-slate-700">{seg.origin}</p>
+                            <p className="text-[9px] text-slate-400 font-bold uppercase truncate">{seg.originTerminal || 'Terminal não ident.'}</p>
+                         </div>
+                         <div className="flex items-center gap-1 text-slate-300">
+                            <div className="w-2 h-px bg-slate-200" />
+                            <MapPin className="w-3 h-3" />
+                            <div className="w-2 h-px bg-slate-200" />
+                         </div>
+                         <div className="flex-1 text-right">
+                            <p className="text-xs font-bold text-slate-700">{seg.destination}</p>
+                            <p className="text-[9px] text-slate-400 font-bold uppercase truncate">{seg.destinationTerminal || 'Terminal não ident.'}</p>
+                         </div>
+                      </div>
+
+                      <div className="mt-2 text-[10px] font-bold text-blue-600/70 bg-blue-50/50 px-2 py-1 rounded-lg inline-block">
+                         Partida: {format(new Date(seg.departureDateTime), 'dd/MM/yyyy HH:mm')}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+             </div>
+          </section>
 
           {/* Seção de Status / Política */}
           <section className="space-y-4">

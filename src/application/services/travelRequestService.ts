@@ -102,11 +102,15 @@ export async function createTravelRequest(
     },
     travel: {
       reason: formData.reason,
+      segments: formData.segments, // Novo campo v3
+      
+      // Campos derivados (Auto-sincronizados pelo Hook ou Helper)
       origin: formData.origin,
       destination: formData.destination,
       departureDateTime: formData.departureDateTime,
       returnDateTime: formData.returnDateTime || null,
       baggageRequired: formData.baggageRequired,
+      
       costCenter: formData.costCenter,
       projectCode: formData.projectCode || null,
       managerName: formData.managerName || null,
@@ -180,6 +184,7 @@ export async function updateTravelRequest(
       'employee.employeeName': formData.employeeName,
       'employee.functionName': formData.functionName,
       'travel.reason': formData.reason,
+      'travel.segments': formData.segments, // Atualização v3
       'travel.origin': formData.origin,
       'travel.destination': formData.destination,
       'travel.departureDateTime': formData.departureDateTime,
