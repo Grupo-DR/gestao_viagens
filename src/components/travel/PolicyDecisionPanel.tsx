@@ -9,6 +9,30 @@ interface PolicyDecisionPanelProps {
   className?: string;
 }
 
+/** Mapeamento de labels técnicas para nomes amigáveis (DR Construtora) */
+const LABEL_MAP: Record<string, string> = {
+  leaveStartDate: 'Início do Gozo',
+  leaveEndDate: 'Fim do Gozo',
+  inicioAquisitivo: 'Início Período Aquisitivo',
+  fimAquisitivo: 'Fim Período Aquisitivo',
+  saldoDias: 'Saldo de Dias',
+  prazoLivre: 'Prazo Limite para Gozo',
+  abonoProgramado: 'Abono Pecuniário',
+  diasProgramados: 'Quantidade de Dias',
+  ultimaFolga: 'Última Folga Registrada',
+  dataPrevista: 'Data Prevista de Retorno',
+};
+
+function formatLabel(key: string): string {
+  if (LABEL_MAP[key]) return LABEL_MAP[key];
+  
+  // Fallback: transforma camelCase em Title Case amigável
+  return key
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, (str) => str.toUpperCase())
+    .trim();
+}
+
 /**
  * PolicyDecisionPanel (Sprint Final)
  * Exibe o veredito do motor de política de forma visual no modal de detalhes.
@@ -36,18 +60,20 @@ export function PolicyDecisionPanel({ decision, className }: PolicyDecisionPanel
           {isApproved ? <CheckCircle className="w-5 h-5" /> : <ShieldAlert className="w-5 h-5" />}
         </div>
         <div>
-          <h4 className="font-bold text-slate-900 text-sm tracking-tight italic">Policy Engine — Decisão</h4>
+          <h4 className="font-bold text-slate-900 text-sm tracking-tight italic">Parecer de Elegibilidade — Política Corporativa</h4>
           <p className="text-xs font-medium text-slate-600 mt-0.5 leading-relaxed">{decision.summary}</p>
         </div>
       </div>
 
       {/* Detalhes Técnicos / Evidências */}
       {decision.evidence && Object.keys(decision.evidence).length > 0 && (
-        <div className="grid grid-cols-2 gap-3 mt-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-4">
           {Object.entries(decision.evidence).map(([key, value]) => (
-            <div key={key} className="bg-white/60 p-2.5 rounded-xl border border-black/5">
-              <label className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter block mb-0.5">{key}</label>
-              <span className="text-[11px] font-mono font-bold text-slate-700">{String(value || 'N/A')}</span>
+            <div key={key} className="bg-white/60 p-2.5 rounded-xl border border-black/5 flex flex-col justify-center">
+              <label className="text-[7.5px] font-black text-slate-400 uppercase tracking-widest block mb-0.5 truncate">{formatLabel(key)}</label>
+              <span className="text-[11px] font-mono font-bold text-slate-700">
+                {typeof value === 'boolean' ? (value ? 'SIM' : 'NÃO') : String(value || 'N/A')}
+              </span>
             </div>
           ))}
         </div>

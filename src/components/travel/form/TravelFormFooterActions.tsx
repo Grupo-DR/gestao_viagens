@@ -20,7 +20,7 @@ export function TravelFormFooterActions({
   formLoading
 }: TravelFormFooterActionsProps) {
   return (
-    <div className="px-10 py-8 border-t border-slate-100 flex items-center justify-end gap-6 bg-slate-50/50">
+    <div className="mt-8 pt-10 border-t border-slate-200 flex items-center justify-end gap-6">
        <button 
          type="button"
          onClick={() => onSaveDraft(policyDecision || undefined)}

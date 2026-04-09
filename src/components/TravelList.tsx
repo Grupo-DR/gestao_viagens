@@ -16,6 +16,8 @@ import { getPassengerDisplayName, formatRoute } from '../domain/travelRequest.ru
 import { TravelListFilters } from './travel/TravelListFilters.tsx';
 import { TravelRequestsTable } from './travel/TravelRequestsTable.tsx';
 import { TravelRequestDetailsModal } from './travel/TravelRequestDetailsModal.tsx';
+import { PassengerImportModal } from './travel/PassengerImportModal.tsx';
+import { UserRole } from '../domain/enums.ts';
 
 interface TravelListProps {
   view: TravelListView;
@@ -39,6 +41,7 @@ export function TravelList({ view, onEdit, onCreate }: TravelListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedRequest, setSelectedRequest] = useState<TravelRequest | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // 4. Filtragem Local (Otimizada com useMemo)
   const filteredRequests = useMemo(() => {
@@ -95,6 +98,18 @@ export function TravelList({ view, onEdit, onCreate }: TravelListProps) {
             </div>
           </button>
         )}
+
+        {view === 'hr' && (
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="group bg-slate-900 text-white px-8 py-3.5 rounded-[20px] font-bold hover:bg-slate-800 transition-all shadow-xl shadow-slate-100 flex items-center gap-3 active:scale-95"
+          >
+            <span>Importação Master</span>
+            <div className="w-6 h-6 bg-slate-700 text-white rounded-lg flex items-center justify-center transition-transform">
+               <span className="font-bold">↑</span>
+            </div>
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -148,6 +163,11 @@ export function TravelList({ view, onEdit, onCreate }: TravelListProps) {
           onUpdateStatus={handleStatusUpdate}
           isUpdating={isUpdating}
         />
+      )}
+
+      {/* Modal de Importação (Exclusivo CH) */}
+      {showImportModal && (
+        <PassengerImportModal onClose={() => setShowImportModal(false)} />
       )}
     </div>
   );

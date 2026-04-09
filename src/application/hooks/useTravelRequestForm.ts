@@ -42,6 +42,8 @@ function buildInitialState(editing: TravelRequest | null): TravelRequestFormData
       justification: '',
       leaveStartDate: '',
       leaveEndDate: '',
+      cpf: '',
+      birthDate: '',
     };
   }
 
@@ -66,6 +68,8 @@ function buildInitialState(editing: TravelRequest | null): TravelRequestFormData
     justification: editing.travel.justification ?? '',
     leaveStartDate: editing.leavePeriod?.leaveStartDate ?? '',
     leaveEndDate: editing.leavePeriod?.leaveEndDate ?? '',
+    cpf: editing.employee.cpf ?? '',
+    birthDate: editing.employee.birthDate ?? '',
   };
 }
 
@@ -126,8 +130,13 @@ export function useTravelRequestForm(
 
   const addSegment = useCallback(() => {
     setFormData((prev) => {
+      const lastSegment = prev.segments[prev.segments.length - 1];
       const nextOrder = prev.segments.length + 1;
-      const newSegments = [...prev.segments, createEmptySegment(nextOrder)];
+      
+      // Lógica de adivinhação: o novo trecho herda o sentido do anterior
+      const nextDirection = lastSegment?.direction || 'ida';
+      
+      const newSegments = [...prev.segments, createEmptySegment(nextOrder, nextDirection)];
       return { 
         ...prev, 
         segments: newSegments,

@@ -1,6 +1,6 @@
 import React from 'react';
-import { Plane, Plus, Luggage } from 'lucide-react';
-import { TravelSegment } from '../../../domain/types';
+import { Plane, Plus } from 'lucide-react';
+import { TravelSegment } from '../../../domain/types.ts';
 import { TravelSegmentCard } from './TravelSegmentCard.tsx';
 import { cn } from '../../../lib/utils.ts';
 
@@ -28,7 +28,7 @@ export function TravelItinerarySection({
   onAddSegment,
   onRemoveSegment,
   onUpdateSegment,
-  onFieldChange
+  onFieldChange,
 }: TravelItinerarySectionProps) {
   return (
     <section className="space-y-10 animate-in fade-in duration-500 delay-100">

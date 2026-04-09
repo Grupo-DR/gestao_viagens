@@ -61,7 +61,7 @@ export function TravelRequestDetailsModal({
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300">
-      <div className="bg-white w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden motion-safe:animate-in motion-safe:zoom-in-95 duration-300 flex flex-col max-h-[95vh] border-4 border-white">
+      <div className="bg-white w-full max-w-4xl rounded-[40px] shadow-2xl overflow-hidden motion-safe:animate-in motion-safe:zoom-in-95 duration-300 flex flex-col max-h-[95vh] border-4 border-white">
         
         {/* Header Personalizado */}
         <div className="px-8 py-7 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
@@ -147,8 +147,26 @@ export function TravelRequestDetailsModal({
                          </div>
                       </div>
 
-                      <div className="mt-2 text-[10px] font-bold text-blue-600/70 bg-blue-50/50 px-2 py-1 rounded-lg inline-block">
-                         Partida: {format(new Date(seg.departureDateTime), 'dd/MM/yyyy HH:mm')}
+                      <div className="mt-3 flex items-center gap-6">
+                         <div className="px-2.5 py-1.5 bg-blue-50/50 rounded-xl border border-blue-100 flex items-center gap-2">
+                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Partida:</span>
+                            <span className="text-[10px] font-bold text-slate-600">{format(new Date(seg.departureDateTime), 'dd/MM/yyyy HH:mm')}</span>
+                         </div>
+                         
+                         {/* Cotação Obra por Trecho */}
+                         <div className="flex items-center gap-4">
+                            <div className="flex flex-col">
+                               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Cia Cotada</span>
+                               <span className="text-[10px] font-bold text-slate-700 italic">{seg.airlineQuote || 'N/A'}</span>
+                            </div>
+                            <div className="w-px h-4 bg-slate-100" />
+                            <div className="flex flex-col">
+                               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Preço Cotado</span>
+                               <span className="text-[10px] font-black text-blue-600 font-mono italic">
+                                 {seg.priceQuote ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(seg.priceQuote) : 'R$ 0,00'}
+                               </span>
+                            </div>
+                         </div>
                       </div>
                     </div>
                   </div>

@@ -52,9 +52,12 @@ export function suggestNextStatus(decision: PolicyDecision): RequestStatus {
   if (decision.result === PolicyResult.APPROVED) {
     return RequestStatus.DISPONIVEL_PARA_COMPRA;
   }
-  if (decision.result === PolicyResult.MANUAL_VALIDATION) {
+  
+  // Se for análise manual ou violação de política, encaminha para o CH
+  if (decision.result === PolicyResult.MANUAL_VALIDATION || decision.result === PolicyResult.REJECTED) {
     return RequestStatus.EM_VALIDACAO_CH;
   }
-  // Se rejeitado ou com erro, volta como rascunho ou pendente de correção
+  
+  // Fallback para erros técnicos ou estados inesperados
   return RequestStatus.PENDENTE_CORRECAO;
 }

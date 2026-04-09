@@ -14,7 +14,7 @@ export const POLICY_RULES: Record<string, PolicyRule> = {
   'FOL_002': {
     code: 'FOL_002',
     severity: PolicySeverity.WARNING,
-    message: 'Data prevista de folga não foi localizada no Chronos. Requer validação CH.',
+    message: 'Data prevista de folga não localizada no cronograma. Requer validação manual do Capital Humano.',
   },
 
   // Regras de Férias
@@ -26,12 +26,12 @@ export const POLICY_RULES: Record<string, PolicyRule> = {
   'FER_002': {
     code: 'FER_002',
     severity: PolicySeverity.BLOCK,
-    message: 'Solicitação fora do limite permitido pelo RM (Confira FIMPERAQUIS).',
+    message: 'Data solicitada está fora do limite permitido para o gozo destas férias.',
   },
   'FER_003': {
     code: 'FER_003',
     severity: PolicySeverity.WARNING,
-    message: 'Dados de programação de férias ausentes no Protheus. Requer validação CH.',
+    message: 'Programação de férias não localizada no sistema de RH. Requer validação manual do Capital Humano.',
   },
   'FER_004': {
     code: 'FER_004',
@@ -46,12 +46,12 @@ export const POLICY_RULES: Record<string, PolicyRule> = {
   'FER_006': {
     code: 'FER_006',
     severity: PolicySeverity.WARNING,
-    message: 'Quantidade de dias solicitada diverge do PROGR_DIAS planejado no RM.',
+    message: 'A quantidade de dias solicitada é diferente da que foi planejada para este período.',
   },
   'FER_007': {
     code: 'FER_007',
     severity: PolicySeverity.BLOCK,
-    message: 'Período aquisitivo ainda em andamento. Férias individuais permitidas apenas após o fechamento do ciclo no RM.',
+    message: 'O colaborador ainda não completou o ciclo de 12 meses necessário para ter direito a férias.',
   },
 
   // Regras Híbridas (Combined)

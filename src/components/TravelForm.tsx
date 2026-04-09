@@ -12,6 +12,7 @@ import { useTravelRequestForm } from '../application/hooks/useTravelRequestForm.
 import { useEmployeeIntegration } from '../application/hooks/useEmployeeIntegration.ts';
 import { usePolicyEvaluation } from '../application/hooks/usePolicyEvaluation.ts';
 import { X, Luggage } from 'lucide-react';
+import { getPassengerByChapa } from '../application/services/passengerMasterService.ts';
 
 // Subcomponentes de Formulário
 import { EmployeeSelectionSection } from './travel/form/EmployeeSelectionSection.tsx';
@@ -72,84 +73,95 @@ export function TravelForm({ onClose, editingRequest }: TravelFormProps) {
       setField('employeeName', selected.name);
       setField('functionName', selected.role);
       lookupEmployee(selected.chapa);
+      
+      // Busca dados mestre (CPF/Nascimento)
+      getPassengerByChapa(selected.chapa).then(master => {
+        if (master) {
+          setField('cpf', master.cpf);
+          setField('birthDate', master.birthDate);
+        } else {
+          setField('cpf', '');
+          setField('birthDate', '');
+        }
+      });
     }
   };
 
   return (
-    <div className="w-full h-full animate-in fade-in slide-in-from-bottom-6 duration-700 flex flex-col pb-10">
-      <div className="bg-white w-full rounded-[48px] border-4 border-slate-50 shadow-2xl overflow-hidden flex flex-col flex-1">
-        
-        {/* Cabeçalho */}
-        <header className="px-12 py-10 border-b border-slate-100 flex items-center justify-between bg-slate-50/30 shrink-0">
-          <div className="flex items-center gap-8">
-            <button 
-              onClick={onClose}
-              className="p-4 hover:bg-slate-200 rounded-[24px] transition-all text-slate-500 bg-white border border-slate-100 shadow-sm group active:scale-90"
-              title="Voltar para a listagem"
-            >
-              <X className="w-7 h-7 group-hover:-translate-x-1 transition-transform" />
-            </button>
-            <div className="flex items-center gap-6 border-l-2 border-slate-200 pl-8">
-              <div className="p-4 bg-blue-600 text-white rounded-[24px] shadow-2xl shadow-blue-200 border-2 border-blue-400/30">
-                 <Luggage className="w-8 h-8" />
-              </div>
-              <div>
-                <h2 className="text-3xl font-black text-slate-900 tracking-tight leading-tight">
-                  {editingRequest ? 'Editar Requisição' : 'Nova Solicitação'}
-                </h2>
-                <div className="flex items-center gap-2 mt-1">
-                   <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                   <p className="text-slate-400 text-xs font-bold uppercase tracking-widest italic">Workflow Operacional Ativo</p>
-                </div>
+    <div className="w-full min-h-full animate-in fade-in slide-in-from-bottom-6 duration-700 flex flex-col gap-12 pb-20">
+      
+      {/* Cabeçalho de Página (Integrado) */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+        <div className="flex items-center gap-6">
+          <button 
+            onClick={onClose}
+            className="p-3.5 hover:bg-white rounded-2xl transition-all text-slate-400 bg-slate-50 border border-slate-100 shadow-sm group active:scale-90"
+            title="Voltar para a listagem"
+          >
+            <X className="w-6 h-6 group-hover:-translate-x-1 transition-transform" />
+          </button>
+          <div className="flex items-center gap-5 border-l-2 border-slate-200 pl-6">
+            <div className="p-3.5 bg-blue-600 text-white rounded-2xl shadow-xl shadow-blue-100">
+               <Luggage className="w-7 h-7" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-tight">
+                {editingRequest ? 'Editar Requisição' : 'Nova Solicitação'}
+              </h1>
+              <div className="flex items-center gap-2 mt-1">
+                 <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                 <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest italic">Workflow Operacional Ativo</p>
               </div>
             </div>
           </div>
-        </header>
-
-        {/* Corpo do Formulário */}
-        <div className="p-12 overflow-y-auto space-y-12 custom-scrollbar flex-1 bg-white">
-          
-          {/* SEÇÃO 1: SINCRONIZAÇÃO RM TOTVS (UNIFICADA) */}
-          <EmployeeSelectionSection 
-            costCenter={formData.costCenter}
-            chapa={formData.chapa}
-            reason={formData.reason}
-            leaveStartDate={formData.leaveStartDate}
-            leaveEndDate={formData.leaveEndDate}
-            costCenters={costCenters}
-            employees={employees}
-            loading={lookupLoading}
-            onCostCenterChange={handleCostCenterChange}
-            onEmployeeChange={handleEmployeeChange}
-            onFieldChange={setField}
-          />
-
-          {/* SEÇÃO 2: FEEDBACK DE POLÍTICA (REAL-TIME) */}
-          <PolicyStatusCard 
-            decision={policyDecision || null}
-            visible={!!formData.chapa}
-          />
-
-          {/* SEÇÃO 3: ITINERÁRIO (NOVO - MULTISEGMENTO) */}
-          <TravelItinerarySection 
-            segments={formData.segments}
-            justification={formData.justification}
-            segmentErrors={errors}
-            onAddSegment={addSegment}
-            onRemoveSegment={removeSegment}
-            onUpdateSegment={updateSegment}
-            onFieldChange={setField}
-          />
         </div>
+      </header>
 
-        {/* Rodapé — Ações Persistentes */}
-        <TravelFormFooterActions 
-          onSaveDraft={saveDraft}
-          onSubmit={submit}
-          policyDecision={policyDecision || null}
-          formLoading={formLoading}
+      {/* Conteúdo do Formulário (Sem Container de Card) */}
+      <div className="space-y-16">
+        
+        {/* SEÇÃO 1: SINCRONIZAÇÃO RM TOTVS (UNIFICADA) */}
+        <EmployeeSelectionSection 
+          costCenter={formData.costCenter}
+          chapa={formData.chapa}
+          reason={formData.reason}
+          leaveStartDate={formData.leaveStartDate}
+          leaveEndDate={formData.leaveEndDate}
+          costCenters={costCenters}
+          employees={employees}
+          loading={lookupLoading}
+          onCostCenterChange={handleCostCenterChange}
+          onEmployeeChange={handleEmployeeChange}
+          onFieldChange={setField}
+          cpf={formData.cpf}
+          birthDate={formData.birthDate}
+        />
+
+        {/* SEÇÃO 2: FEEDBACK DE POLÍTICA (REAL-TIME) */}
+        <PolicyStatusCard 
+          decision={policyDecision || null}
+          visible={!!formData.chapa}
+        />
+
+        {/* SEÇÃO 3: ITINERÁRIO (MULTISEGMENTO) */}
+        <TravelItinerarySection 
+          segments={formData.segments}
+          justification={formData.justification}
+          segmentErrors={errors}
+          onAddSegment={addSegment}
+          onRemoveSegment={removeSegment}
+          onUpdateSegment={updateSegment}
+          onFieldChange={setField}
         />
       </div>
+
+      {/* Rodapé — Ações Persistentes (Integrado) */}
+      <TravelFormFooterActions 
+        onSaveDraft={saveDraft}
+        onSubmit={submit}
+        policyDecision={policyDecision || null}
+        formLoading={formLoading}
+      />
     </div>
   );
 }

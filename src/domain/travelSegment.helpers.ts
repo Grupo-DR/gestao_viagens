@@ -1,4 +1,4 @@
-import { TravelSegment, TravelInfo } from './types';
+import { TravelSegment, TravelInfo, TravelDirection } from './types';
 
 /**
  * Gera um ID único para o trecho.
@@ -15,11 +15,12 @@ export function generateSegmentId(): string {
  * Cria um trecho vazio com ID robusto e ordem definida.
  * Garante que todos os campos opcionais tenham valores iniciais de string vazia.
  */
-export function createEmptySegment(order: number): TravelSegment {
+export function createEmptySegment(order: number, direction: TravelDirection = 'ida'): TravelSegment {
   return {
     id: generateSegmentId(),
     order,
     transportMode: 'aereo',
+    direction,
     origin: '',
     originTerminal: '',
     destination: '',
@@ -27,6 +28,8 @@ export function createEmptySegment(order: number): TravelSegment {
     departureDateTime: '',
     arrivalDateTime: '',
     baggageRequired: false,
+    airlineQuote: '',
+    priceQuote: 0,
   };
 }
 
@@ -65,6 +68,7 @@ export function normalizeSegmentsFromTravel(travel: TravelInfo): TravelSegment[]
     departureDateTime: travel.departureDateTime || '',
     arrivalDateTime: '',
     baggageRequired: travel.baggageRequired || false,
+    direction: 'ida'
   });
 
   // Segmento 2: Volta (se existir returnDateTime)
@@ -80,6 +84,7 @@ export function normalizeSegmentsFromTravel(travel: TravelInfo): TravelSegment[]
       departureDateTime: travel.returnDateTime,
       arrivalDateTime: '',
       baggageRequired: travel.baggageRequired || false,
+      direction: 'volta'
     });
   }
 
@@ -115,7 +120,7 @@ export function deriveTravelSummaryFromSegments(segments: TravelSegment[]): {
     origin: first.origin,
     destination: last.destination,
     departureDateTime: first.departureDateTime,
-    returnDateTime: sorted.length > 1 ? last.departureDateTime : undefined,
+    returnDateTime: sorted.length > 1 ? last.departureDateTime : null,
     baggageRequired: sorted.some(s => s.baggageRequired),
   };
 }
@@ -134,6 +139,15 @@ export function validateSegment(segment: TravelSegment): string[] {
     if (new Date(segment.arrivalDateTime) <= new Date(segment.departureDateTime)) {
       errors.push('Chegada deve ser posterior à partida.');
     }
+  }
+
+  // Validação de Cotação (Obrigatório DR Construtora)
+  if (!segment.airlineQuote || !segment.airlineQuote.trim()) {
+    errors.push('Companhia Cotada obrigatória.');
+  }
+
+  if (segment.priceQuote === undefined || segment.priceQuote === null || segment.priceQuote <= 0) {
+    errors.push('Preço Cotado deve ser maior que zero.');
   }
 
   return errors;

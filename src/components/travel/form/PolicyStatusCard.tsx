@@ -18,12 +18,12 @@ export function PolicyStatusCard({ decision, visible }: PolicyStatusCardProps) {
 
   return (
     <div className={cn(
-      "p-8 rounded-[32px] border-2 transition-all duration-500 flex gap-6 animate-in slide-in-from-top-4",
+      "p-6 rounded-2xl border-2 transition-all duration-500 flex gap-6 animate-in slide-in-from-top-4",
       !decision 
         ? "bg-slate-50 border-slate-100" 
-        : decision.result === PolicyResult.REJECTED ? "bg-red-50/50 border-red-100/50 shadow-sm shadow-red-50" :
-          decision.result === PolicyResult.MANUAL_VALIDATION ? "bg-amber-50/50 border-amber-100/50 shadow-sm shadow-amber-50" :
-          "bg-emerald-50/50 border-emerald-100/50 shadow-sm shadow-emerald-50"
+        : decision.result === PolicyResult.REJECTED ? "bg-red-50/50 border-red-100/50" :
+          decision.result === PolicyResult.MANUAL_VALIDATION ? "bg-amber-50/50 border-amber-100/50" :
+          "bg-emerald-50/50 border-emerald-100/50"
     )}>
       <div className={cn(
         "w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg border-2 border-white/50 shrink-0",

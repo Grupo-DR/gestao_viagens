@@ -15,6 +15,8 @@ interface EmployeeSelectionSectionProps {
   onCostCenterChange: (code: string) => void;
   onEmployeeChange: (chapa: string) => void;
   onFieldChange: (field: string, value: any) => void;
+  cpf: string;
+  birthDate: string;
 }
 
 const SELECT_CLASS =
@@ -38,7 +40,9 @@ export function EmployeeSelectionSection({
   loading,
   onCostCenterChange,
   onEmployeeChange,
-  onFieldChange
+  onFieldChange,
+  cpf,
+  birthDate
 }: EmployeeSelectionSectionProps) {
   
   const isHRReason = [
@@ -57,7 +61,7 @@ export function EmployeeSelectionSection({
         <div className="h-px flex-1 bg-slate-100 ml-2" />
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 bg-blue-50/10 p-8 rounded-[32px] border-2 border-blue-50/50">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 pt-2">
         
         {/* 1. Centro de Custo */}
         <div className="space-y-2.5">
@@ -116,6 +120,34 @@ export function EmployeeSelectionSection({
               <option key={r} value={r}>{r}</option>
             ))}
           </select>
+        </div>
+
+        {/* 4. Dados Adicionais (CPF e Nascimento) - Preenchidos via Master Data */}
+        <div className={cn("md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8 pt-2 transition-all duration-500", !chapa ? "opacity-0 h-0 overflow-hidden" : "opacity-100 h-auto")}>
+            <div className="space-y-2.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">
+                CPF do Passageiro
+              </label>
+              <input 
+                type="text"
+                value={cpf ? cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") : ''}
+                readOnly
+                placeholder="Aguardando base mestre..."
+                className={cn(INPUT_CLASS, "bg-slate-50 border-slate-100 text-slate-500 shadow-none")}
+              />
+            </div>
+            <div className="space-y-2.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">
+                Data de Nascimento
+              </label>
+              <input 
+                type="text"
+                value={birthDate ? birthDate.split('-').reverse().join('/') : ''}
+                readOnly
+                placeholder="Aguardando base mestre..."
+                className={cn(INPUT_CLASS, "bg-slate-50 border-slate-100 text-slate-500 shadow-none")}
+              />
+            </div>
         </div>
 
         {/* 4. Datas de Afastamento (Integradas e Condicionais) */}

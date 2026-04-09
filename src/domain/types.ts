@@ -49,9 +49,12 @@ export interface EmployeeInfo {
   functionName?: string;
   employmentStatus?: EmploymentStatus;
   directOrIndirect?: DirectOrIndirect;
+  cpf?: string;           // Novo: Apenas números
+  birthDate?: string;     // Novo: YYYY-MM-DD
 }
 
 export type TransportMode = 'aereo' | 'rodoviario';
+export type TravelDirection = 'ida' | 'volta';
 
 export interface TravelSegment {
   id: string;
@@ -64,6 +67,11 @@ export interface TravelSegment {
   departureDateTime: string;   // ISO 8601
   arrivalDateTime?: string;     // ISO 8601 — opcional
   baggageRequired: boolean;    // Aplicável apenas para aéreo
+  direction: TravelDirection;
+  
+  /** Cotação inicial da obra para este trecho */
+  airlineQuote?: string; // Ex: LATAM, GOL, AZUL, UTIL (Ônibus)
+  priceQuote?: number;
 }
 
 /** Dados do trecho de viagem (Agregador) */
@@ -202,6 +210,8 @@ export interface TravelRequestFormData {
   chapa: string;
   employeeName: string;
   functionName: string;
+  cpf: string;        // Novo
+  birthDate: string;  // Novo
 
   // Travel — Itinerário v3
   reason: TravelReason;
