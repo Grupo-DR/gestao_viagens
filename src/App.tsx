@@ -6,13 +6,14 @@
 // ============================================================
 
 import { useState } from 'react';
-import { IdentityProvider } from './application/identity/IdentityContext';
-import { useIdentity } from './application/identity/IdentityContext';
+import { IdentityProvider, useIdentity } from './application/identity/IdentityContext';
 import { Layout, AppTab } from './components/Layout';
 import { LoginPage } from './components/auth/LoginPage';
 import { TravelForm } from './components/TravelForm';
 import { TravelList } from './components/TravelList';
 import { Dashboard } from './components/Dashboard';
+import { UserManagementPanel } from './components/admin/UserManagementPanel';
+import { EmployeeRayXPanel } from './components/employees/EmployeeRayXPanel';
 import type { TravelRequest } from './domain/types';
 
 // ──────────────────────────────────────────────
@@ -74,6 +75,10 @@ function AppContent() {
         return <TravelList view="buyer" />;
       case 'dashboard':
         return <Dashboard />;
+      case 'usuarios':
+        return <UserManagementPanel />;
+      case 'raiox':
+        return <EmployeeRayXPanel />;
       default:
         return null;
     }

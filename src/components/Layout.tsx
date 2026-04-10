@@ -7,7 +7,7 @@
 import React from 'react';
 import { UserRole } from '../domain/enums';
 import { useIdentity } from '../application/identity/IdentityContext';
-import { Plane, ShieldCheck, ShoppingCart, BarChart3, LogOut, User as UserIcon, Users, Shield, Settings } from 'lucide-react';
+import { Plane, ShieldCheck, ShoppingCart, BarChart3, LogOut, User as UserIcon, Users, Shield } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 // ──────────────────────────────────────────────
@@ -190,29 +190,6 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
                 </div>
               </div>
             )}
-
-            {/* Alternador de papel — modo provisório */}
-            <div className="mt-4 pt-3 border-t border-slate-200">
-              <p className="text-[9px] font-bold text-slate-400 uppercase mb-2 flex items-center gap-1">
-                <Settings className="w-2.5 h-2.5" /> Alternar Perfil (Demo)
-              </p>
-              <div className="grid grid-cols-2 gap-1">
-                {(Object.values(UserRole) as UserRole[]).map((role) => (
-                  <button
-                    key={role}
-                    onClick={() => switchRole(role)}
-                    className={cn(
-                      'text-[9px] py-1.5 px-2 rounded-md border transition-all truncate',
-                      currentUser.role === role
-                        ? 'bg-blue-600 border-blue-600 text-white font-bold'
-                        : 'bg-white border-slate-200 text-slate-500 hover:border-blue-300'
-                    )}
-                  >
-                    {ROLE_LABELS[role]}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
 
           {/* Botão Sair */}
