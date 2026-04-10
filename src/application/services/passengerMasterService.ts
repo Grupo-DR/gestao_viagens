@@ -1,113 +1,91 @@
 // ============================================================
 // APPLICATION — Service — Passenger Master Service
-// Gerencia a base mestre de passageiros (CPF e Nascimento).
-// Permite importação em massa e consulta por Chapa.
+// Consulta dados-mestre (CPF e Nascimento) diretamente do TOTVS RM
+// via sentença SQL 'DADOS SOLIDES', correlacionando pela Chapa.
+// A importação manual por Excel foi descontinuada.
 // ============================================================
 
-import {
-  collection,
-  setDoc,
-  doc,
-  getDoc,
-  writeBatch,
-  query,
-  where,
-  getDocs,
-} from 'firebase/firestore';
-import { db, OperationType, handleFirestoreError } from '../../infrastructure/firebase/firebase';
+import { rmSqlClient } from '../../infrastructure/api/rmSqlClient';
+import { API_CONFIG } from '../../infrastructure/api/config';
 
 export interface PassengerMasterData {
   chapa: string;
   name: string;
   cpf: string;
-  birthDate: string; // ISO format YYYY-MM-DD
+  birthDate: string;   // ISO format YYYY-MM-DD
+  functionName?: string;
+  homeCity?: string;   // Formato normalizado: "Cidade - UF" (ex: "SÃO PAULO - SP")
   updatedAt: string;
 }
 
-const COLLECTION = 'passenger_master';
-
-/** 
- * SET TO TRUE PARA TESTAR SEM FIREBASE (MODO LOCALSTORAGE)
- * Segue o padrão de travelRequestService.ts
- */
-export const FORCE_MOCK_MODE = true;
-
-// ──────────────────────────────────────────────
-// Helpers Mock
-// ──────────────────────────────────────────────
-
-function saveToLocalStorage(data: PassengerMasterData) {
-  const master: Record<string, PassengerMasterData> = JSON.parse(localStorage.getItem('passenger_master') || '{}');
-  master[data.chapa] = data;
-  localStorage.setItem('passenger_master', JSON.stringify(master));
+// Formato raw retornado pela sentença DADOS SOLIDES do RM
+interface DadosSolidesRaw {
+  CHAPA: string;
+  NOME: string;
+  CPF: string;
+  DTNASCIMENTO: string; // ISO: "1986-02-05T00:00:00-03:00"
+  NOME1?: string;       // Função
+  CIDADE?: string;      // Cidade cadastrada do colaborador
+  ESTADO?: string;      // UF cadastrada do colaborador
+  CODCUSTO?: string;
+  [key: string]: unknown;
 }
-
-function getFromLocalStorage(chapa: string): PassengerMasterData | null {
-  const master: Record<string, PassengerMasterData> = JSON.parse(localStorage.getItem('passenger_master') || '{}');
-  return master[chapa] || null;
-}
-
-// ──────────────────────────────────────────────
-// Comandos Públicos
-// ──────────────────────────────────────────────
 
 /**
- * Busca dados mestres de um passageiro pela chapa.
+ * Formata a data ISO do RM para o padrão YYYY-MM-DD esperado pelo domínio.
+ * Ex: "1986-02-05T00:00:00-03:00" → "1986-02-05"
+ */
+function parseBirthDate(isoDate: string): string {
+  if (!isoDate) return '';
+  try {
+    return isoDate.split('T')[0];
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Constrói a cidade de residência no formato padronizado "CIDADE - UF".
+ * Ex: CIDADE="SAO PAULO", ESTADO="SP" → "SAO PAULO - SP"
+ */
+function buildHomeCity(cidade?: string, estado?: string): string {
+  if (!cidade) return '';
+  const c = cidade.trim().toUpperCase();
+  const uf = estado?.trim().toUpperCase() || '';
+  return uf ? `${c} - ${uf}` : c;
+}
+
+/**
+ * Busca dados de CPF e Nascimento de um colaborador pela Chapa,
+ * utilizando o endpoint 'DADOS SOLIDES' do TOTVS RM.
  */
 export async function getPassengerByChapa(chapa: string): Promise<PassengerMasterData | null> {
   if (!chapa) return null;
 
-  if (FORCE_MOCK_MODE) {
-    return getFromLocalStorage(chapa);
-  }
-
   try {
-    const docRef = doc(db, COLLECTION, chapa);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      return docSnap.data() as PassengerMasterData;
-    }
-    return null;
-  } catch (error) {
-    console.error('Erro ao buscar passageiro master:', error);
-    return null;
-  }
-}
+    const results = await rmSqlClient.executeSentence<DadosSolidesRaw>(
+      API_CONFIG.SENTENCES.MASTER_DATA
+    );
 
-/**
- * Realiza a importação em massa de dados do Excel.
- * Usa Batches do Firestore para eficiência (limite de 500 por lote).
- */
-export async function bulkUploadPassengers(data: PassengerMasterData[]): Promise<{ success: number; failed: number }> {
-  if (FORCE_MOCK_MODE) {
-    data.forEach(p => saveToLocalStorage(p));
-    return { success: data.length, failed: 0 };
-  }
+    // Correlaciona pela Chapa dentro da lista completa retornada
+    const match = results.find(r => String(r.CHAPA).trim() === String(chapa).trim());
 
-  try {
-    const batch = writeBatch(db);
-    let count = 0;
-
-    for (const passenger of data) {
-      const docRef = doc(db, COLLECTION, passenger.chapa);
-      batch.set(docRef, {
-        ...passenger,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-      count++;
-      
-      // O Firestore tem limite de 500 operações por batch
-      if (count === 500) {
-        // Nota: Para simplificar, assumimos que as planilhas são menores que 500 linhas.
-        // Em produção de larga escala, quebraríamos em múltiplos batches assíncronos.
-        break; 
-      }
+    if (!match) {
+      console.warn(`[PassengerMaster] Chapa ${chapa} não encontrada em DADOS SOLIDES.`);
+      return null;
     }
 
-    await batch.commit();
-    return { success: count, failed: 0 };
+    return {
+      chapa: String(match.CHAPA).trim(),
+      name: match.NOME || '',
+      cpf: (match.CPF || '').replace(/\D/g, ''), // Remove pontos, traços
+      birthDate: parseBirthDate(match.DTNASCIMENTO),
+      functionName: match.NOME1 || '',
+      homeCity: buildHomeCity(match.CIDADE, match.ESTADO),
+      updatedAt: new Date().toISOString(),
+    };
   } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, COLLECTION);
-    return { success: 0, failed: data.length };
+    console.error(`[PassengerMaster] Falha ao buscar chapa ${chapa} no RM:`, error);
+    return null;
   }
 }

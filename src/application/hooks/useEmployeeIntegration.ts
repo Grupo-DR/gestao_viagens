@@ -13,12 +13,18 @@ import {
 import { EmployeeMapper } from '../mappers/EmployeeMapper.ts';
 import { getErrorMessage } from '../../lib/errorUtils.ts';
 import { useToast } from './useToast.ts';
+import { useIdentity } from '../identity/IdentityContext.tsx';
+import { UserRole } from '../../domain/enums.ts';
 import { ExternalVacationDTO } from '../dtos/ExternalEmployeeDTO.ts';
 
 export interface CCListItem { code: string; label: string }
 export interface EmployeeListItem { chapa: string; name: string; role: string }
 
+/** Papéis com acesso irrestrito a todos os Centros de Custo */
+const UNRESTRICTED_ROLES = new Set<UserRole>([UserRole.MASTER, UserRole.CAPITAL_HUMANO]);
+
 export function useEmployeeIntegration() {
+  const { currentUser } = useIdentity();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +41,7 @@ export function useEmployeeIntegration() {
 
   /** 
    * Inicialização: Baixa a base mestre do RM via GET.
-   * Extraímos Centros de Custo (DESCRICAO) na hora.
+   * Aplica filtro de CCs conforme o papel do usuário.
    */
   const init = useCallback(async () => {
     setLoading(true);
@@ -43,7 +49,18 @@ export function useEmployeeIntegration() {
       const list = await getMasterEmployeeList();
       setMasterList(list);
       
-      const ccList = EmployeeMapper.mapToCostCenterList(list);
+      let ccList = EmployeeMapper.mapToCostCenterList(list);
+
+      // Aplica filtro de CC para papéis restritos
+      if (currentUser && !UNRESTRICTED_ROLES.has(currentUser.role)) {
+        const allowed = new Set(currentUser.allowedCostCenters ?? []);
+        if (allowed.size > 0) {
+          ccList = ccList.filter(cc => allowed.has(cc.code));
+        } else {
+          ccList = []; // Sem CCs liberados = lista vazia
+        }
+      }
+
       setCostCenters(ccList);
     } catch (err: any) {
       console.warn('[Integration] Erro ao carregar base mestre RM. Ativando Mock Fallback.');
@@ -53,7 +70,7 @@ export function useEmployeeIntegration() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentUser]);
 
   /** 
    * Filtragem de colaboradores por Centro de Custo (Local) 

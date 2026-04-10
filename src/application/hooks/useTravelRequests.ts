@@ -208,14 +208,10 @@ function buildQuery(view: TravelListView, userId?: string): Query<DocumentData> 
   }
 }
 
-/**
- * Tenta interpretar um documento Firestore como v2 nativo.
- * Se falhar (documento legado), usa o mapeador de compatibilidade.
- */
 function normalizeDocument(raw: DocumentData & { id: string }): TravelRequest {
   // Heurística: documentos v2 têm o campo "requester" como objeto
   if (raw['requester'] && typeof raw['requester'] === 'object') {
-    return raw as unknown as TravelRequest;
+    return { ...raw, requestId: raw.id } as unknown as TravelRequest;
   }
   // Documento legado: mapear
   return mapLegacyToTravelRequest(raw as unknown as LegacyTravelRequest);

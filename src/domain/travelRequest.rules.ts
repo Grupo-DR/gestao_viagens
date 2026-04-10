@@ -48,9 +48,8 @@ export function getInitialStatus(
   asDraft: boolean
 ): RequestStatus {
   if (asDraft) return RequestStatus.RASCUNHO;
-  return needsValidation(reason)
-    ? RequestStatus.EM_VALIDACAO_CH
-    : RequestStatus.DISPONIVEL_PARA_COMPRA;
+  // Todo fluxo obrigatoriamente passará pelo CH
+  return RequestStatus.EM_VALIDACAO_CH;
 }
 
 /**
@@ -64,19 +63,19 @@ export function getAvailableTransitions(
   const transitions: Partial<Record<RequestStatus, { allowed: RequestStatus[]; roles: UserRole[] }>> = {
     [RequestStatus.RASCUNHO]: {
       allowed: [RequestStatus.EM_VALIDACAO_CH, RequestStatus.DISPONIVEL_PARA_COMPRA],
-      roles: [UserRole.ADMINISTRATIVO, UserRole.GESTOR],
+      roles: [UserRole.ADMINISTRATIVO, UserRole.GESTOR, UserRole.MASTER],
     },
     [RequestStatus.PENDENTE_CORRECAO]: {
       allowed: [RequestStatus.EM_VALIDACAO_CH, RequestStatus.DISPONIVEL_PARA_COMPRA],
-      roles: [UserRole.ADMINISTRATIVO, UserRole.GESTOR],
+      roles: [UserRole.ADMINISTRATIVO, UserRole.GESTOR, UserRole.MASTER],
     },
     [RequestStatus.EM_VALIDACAO_CH]: {
       allowed: [RequestStatus.DISPONIVEL_PARA_COMPRA, RequestStatus.REPROVADA, RequestStatus.PENDENTE_CORRECAO],
-      roles: [UserRole.CAPITAL_HUMANO, UserRole.GESTOR],
+      roles: [UserRole.CAPITAL_HUMANO, UserRole.GESTOR, UserRole.MASTER],
     },
     [RequestStatus.DISPONIVEL_PARA_COMPRA]: {
       allowed: [RequestStatus.EMITIDA, RequestStatus.CANCELADA, RequestStatus.PENDENTE_CORRECAO],
-      roles: [UserRole.COMPRADOR, UserRole.GESTOR],
+      roles: [UserRole.COMPRADOR, UserRole.GESTOR, UserRole.MASTER],
     },
   };
 

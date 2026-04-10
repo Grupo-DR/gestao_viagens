@@ -4,7 +4,7 @@
 // REORGANIZAÇÃO: Motivo e Datas RM agora integrados no bloco inicial.
 // ============================================================
 
-import React from 'react';
+import React, { useState } from 'react';
 import { TravelReason } from '../domain/enums.ts';
 import { TravelRequest } from '../domain/types.ts';
 import { useIdentity } from '../application/identity/IdentityContext.tsx';
@@ -17,6 +17,7 @@ import { getPassengerByChapa } from '../application/services/passengerMasterServ
 // Subcomponentes de Formulário
 import { EmployeeSelectionSection } from './travel/form/EmployeeSelectionSection.tsx';
 import { PolicyStatusCard } from './travel/form/PolicyStatusCard.tsx';
+import { DestinationCityAlert } from './travel/form/DestinationCityAlert.tsx';
 import { TravelItinerarySection } from './travel/form/TravelItinerarySection.tsx';
 import { TravelFormFooterActions } from './travel/form/TravelFormFooterActions.tsx';
 
@@ -27,6 +28,7 @@ interface TravelFormProps {
 
 export function TravelForm({ onClose, editingRequest }: TravelFormProps) {
   const { currentUser } = useIdentity();
+  const [homeCity, setHomeCity] = useState<string>('');
   
   // 1. Hook de Estado do Formulário
   const { 
@@ -74,14 +76,16 @@ export function TravelForm({ onClose, editingRequest }: TravelFormProps) {
       setField('functionName', selected.role);
       lookupEmployee(selected.chapa);
       
-      // Busca dados mestre (CPF/Nascimento)
+      // Busca dados mestre (CPF/Nascimento/Cidade)
       getPassengerByChapa(selected.chapa).then(master => {
         if (master) {
           setField('cpf', master.cpf);
           setField('birthDate', master.birthDate);
+          setHomeCity(master.homeCity || '');
         } else {
           setField('cpf', '');
           setField('birthDate', '');
+          setHomeCity('');
         }
       });
     }
@@ -141,6 +145,14 @@ export function TravelForm({ onClose, editingRequest }: TravelFormProps) {
         <PolicyStatusCard 
           decision={policyDecision || null}
           visible={!!formData.chapa}
+        />
+
+        {/* ALERTA DE CIDADE (Validação de Destino vs. Cadastro RM) */}
+        <DestinationCityAlert
+          homeCity={homeCity}
+          segments={formData.segments}
+          reason={formData.reason}
+          visible={!!formData.chapa && formData.segments.length > 0}
         />
 
         {/* SEÇÃO 3: ITINERÁRIO (MULTISEGMENTO) */}

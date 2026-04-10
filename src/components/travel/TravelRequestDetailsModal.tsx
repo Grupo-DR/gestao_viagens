@@ -40,8 +40,8 @@ export function TravelRequestDetailsModal({
   const [showPurchaseForm, setShowPurchaseForm] = useState(false);
 
   // Permissões de Ação
-  const isHR = currentUserRole === UserRole.CAPITAL_HUMANO || currentUserRole === UserRole.ADMINISTRATIVO;
-  const isBuyer = currentUserRole === UserRole.COMPRADOR || currentUserRole === UserRole.ADMINISTRATIVO;
+  const isHR = currentUserRole === UserRole.CAPITAL_HUMANO || currentUserRole === UserRole.ADMINISTRATIVO || currentUserRole === UserRole.MASTER;
+  const isBuyer = currentUserRole === UserRole.COMPRADOR || currentUserRole === UserRole.ADMINISTRATIVO || currentUserRole === UserRole.MASTER;
   
   const canApproveHR = isHR && request.status === RequestStatus.EM_VALIDACAO_CH;
   const canBuy = isBuyer && [RequestStatus.DISPONIVEL_PARA_COMPRA, RequestStatus.APROVADA].includes(request.status);
@@ -91,6 +91,12 @@ export function TravelRequestDetailsModal({
             {[
               { label: 'Passageiro', value: getPassengerDisplayName(request) },
               { label: 'CHAPA', value: request.employee.chapa || '—' },
+              { label: 'CPF', value: request.employee.cpf
+                ? request.employee.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+                : '—' },
+              { label: 'Data de Nascimento', value: request.employee.birthDate
+                ? new Date(request.employee.birthDate + 'T12:00:00').toLocaleDateString('pt-BR')
+                : '—' },
               { label: 'Motivo', value: request.travel.reason },
               { label: 'Centro de Custo', value: request.travel.costCenter },
               { label: 'Rota Resumida', value: formatRoute(request) },
@@ -243,13 +249,24 @@ export function TravelRequestDetailsModal({
                 )}
 
                 {canBuy && (
-                  <button 
-                    onClick={() => setShowPurchaseForm(true)}
-                    className="bg-blue-600 text-white px-10 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-100 flex items-center gap-2 group transition-all"
-                  >
-                     <ShoppingCart className="w-4 h-4 group-hover:rotate-12 transition-transform" />
-                     Processar Emissão
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => handleAction(RequestStatus.CANCELADA)}
+                      disabled={isUpdating || !comment.trim()}
+                      title={!comment.trim() ? 'Preencha a justificativa antes de cancelar' : ''}
+                      className="px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 transition-all border border-red-100 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      <ShieldAlert className="w-4 h-4" />
+                      Cancelar Solicitação
+                    </button>
+                    <button 
+                      onClick={() => setShowPurchaseForm(true)}
+                      className="bg-blue-600 text-white px-10 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-100 flex items-center gap-2 group transition-all"
+                    >
+                       <ShoppingCart className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                       Processar Emissão
+                    </button>
+                  </div>
                 )}
               </>
             )}

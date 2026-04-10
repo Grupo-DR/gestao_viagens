@@ -1,28 +1,25 @@
 // ============================================================
 // APPLICATION — Identity — React Context
 // Fornece o usuário corrente e ações de identidade para toda a árvore.
-// Desacoplado do provider concreto (local vs Firebase).
+// Migrado para Firebase Auth (Real).
 // ============================================================
 
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 import { UserRole } from '../../domain/enums';
 import type { UserProfile } from '../../domain/types';
-import type { IdentityProvider } from './types';
-import { localIdentityProvider } from './localIdentityProvider';
-
-// Em uma fase futura, isso viria de uma configuração/env
-const activeProvider: IdentityProvider = localIdentityProvider;
+import { firebaseIdentityProvider } from './firebaseIdentityProvider';
 
 // ──────────────────────────────────────────────
 // Contrato do context
 // ──────────────────────────────────────────────
 
 interface IdentityContextValue {
-  currentUser: UserProfile;
-  /** Troca o papel do usuário sem reiniciar a aplicação */
+  currentUser: UserProfile | null;
+  loading: boolean;
+  /** Troca o papel do usuário (Modo Admin/Simulação) */
   switchRole: (role: UserRole) => void;
-  /** Encerra a sessão provisória */
-  logout: () => void;
+  /** Encerra a sessão real no Firebase */
+  logout: () => Promise<void>;
 }
 
 // ──────────────────────────────────────────────
@@ -31,10 +28,6 @@ interface IdentityContextValue {
 
 const IdentityContext = createContext<IdentityContextValue | null>(null);
 
-/**
- * Hook de acesso ao contexto de identidade.
- * Lança erro descritivo se usado fora do provider.
- */
 export function useIdentity(): IdentityContextValue {
   const ctx = useContext(IdentityContext);
   if (!ctx) {
@@ -44,7 +37,7 @@ export function useIdentity(): IdentityContextValue {
 }
 
 // ──────────────────────────────────────────────
-// Provider
+// Provider Real (Firebase)
 // ──────────────────────────────────────────────
 
 interface IdentityProviderProps {
@@ -52,27 +45,35 @@ interface IdentityProviderProps {
 }
 
 export function IdentityProvider({ children }: IdentityProviderProps) {
-  // Estado inicializado a partir do provider ativo
-  const [currentUser, setCurrentUser] = useState<UserProfile>(
-    () => activeProvider.getProfile()
-  );
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Inscreve no listener de autenticação real
+    firebaseIdentityProvider.onAuthStateChanged((user) => {
+      setCurrentUser(user);
+      setLoading(false);
+    });
+  }, []);
 
   const switchRole = useCallback((role: UserRole) => {
-    const updated = activeProvider.switchRole(role);
+    const updated = firebaseIdentityProvider.switchRole(role);
     setCurrentUser(updated);
   }, []);
 
-  const logout = useCallback(() => {
-    activeProvider.logout();
-    // Na fase provisória simplesmente recarrega — Firebase Auth faria o redirect
-    window.location.reload();
+  const logout = useCallback(async () => {
+    setLoading(true);
+    await firebaseIdentityProvider.logout();
+    setCurrentUser(null);
+    setLoading(false);
   }, []);
 
   const value: IdentityContextValue = useMemo(() => ({
     currentUser,
+    loading,
     switchRole,
     logout,
-  }), [currentUser, switchRole, logout]);
+  }), [currentUser, loading, switchRole, logout]);
 
   return (
     <IdentityContext.Provider value={value}>

@@ -39,7 +39,7 @@ const COLLECTION = 'travelRequests';
  * SET TO TRUE PARA TESTAR SEM FIREBASE (MODO LOCALSTORAGE)
  * Útil quando o banco está fora do ar ou com erros de validação.
  */
-export const FORCE_MOCK_MODE = true;
+export const FORCE_MOCK_MODE = false;
 
 // ──────────────────────────────────────────────
 // Helpers internos para Mock/Demo

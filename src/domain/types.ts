@@ -25,6 +25,13 @@ export interface UserProfile {
   email: string;
   role: UserRole;
   name?: string;
+  /**
+   * Centros de Custo aos quais o usuário tem acesso.
+   * MASTER e CAPITAL_HUMANO ignoram este campo e veem todos os CCs.
+   * Para GESTOR e ADMINISTRATIVO, apenas os CCs listados aqui são visíveis.
+   * Array vazio = sem acesso a nenhum CC.
+   */
+  allowedCostCenters?: string[];
 }
 
 // ──────────────────────────────────────────────

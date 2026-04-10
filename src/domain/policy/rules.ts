@@ -35,8 +35,8 @@ export const PolicyEngine = {
 
     const evidence: TimeOffPolicyEvidence = { 
       leaveStartDate, 
-      dataPrevista: prevista || undefined,
-      ultimaFolga: normalize(timeOff?.ULTIMA_FOLGA) || undefined
+      dataPrevista: prevista || null,
+      ultimaFolga: normalize(timeOff?.ULTIMA_FOLGA) || null
     };
 
     if (!prevista) {
@@ -87,12 +87,12 @@ export const PolicyEngine = {
     const evidence: VacationPolicyEvidence = { 
       leaveStartDate, 
       leaveEndDate, 
-      inicioAquisitivo: aquaInicio || undefined, 
-      fimAquisitivo: aquaFim || undefined,
+      inicioAquisitivo: aquaInicio || null, 
+      fimAquisitivo: aquaFim || null,
       saldoDias: vacation?.SALDO || 0,
-      prazoLivre: prazoGozo || undefined,
+      prazoLivre: prazoGozo || null,
       abonoProgramado: vacation?.PROGR_ABONO === 'S',
-      diasProgramados: vacation?.PROGR_DIAS
+      diasProgramados: vacation?.PROGR_DIAS ?? null
     };
 
     if (!aquaInicio || !aquaFim) {

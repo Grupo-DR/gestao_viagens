@@ -49,8 +49,9 @@ export function evaluateTravelPolicy(
  * Sugere o próximo status do workflow com base no resultado da política.
  */
 export function suggestNextStatus(decision: PolicyDecision): RequestStatus {
+  // Sempre encaminha para o CH primeiro, independentemente de conformidade política
   if (decision.result === PolicyResult.APPROVED) {
-    return RequestStatus.DISPONIVEL_PARA_COMPRA;
+    return RequestStatus.EM_VALIDACAO_CH;
   }
   
   // Se for análise manual ou violação de política, encaminha para o CH

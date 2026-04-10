@@ -155,10 +155,11 @@ export function TravelSegmentCard({
           </label>
           <input 
             className={cn(INPUT_CLASS, hasErrors && !segment.destination.trim() && ERROR_INPUT_CLASS)} 
-            placeholder="Ex: Salvador"
+            placeholder="Ex: Belo Horizonte - MG"
             value={segment.destination}
             onChange={(e) => onUpdate(segment.id, 'destination', e.target.value)}
           />
+          <p className="text-[9px] text-slate-400 font-medium pl-1">Use o formato: Cidade - UF (ex: São Paulo - SP)</p>
         </div>
 
         {/* Terminal de Destino */}
@@ -254,12 +255,13 @@ export function TravelSegmentCard({
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
                 <input 
+                  type="number"
+                  step="0.01"
                   className={cn(INPUT_CLASS, "pl-10 font-mono", hasErrors && (!segment.priceQuote || segment.priceQuote <= 0) && ERROR_INPUT_CLASS)} 
-                  placeholder="0,00"
-                  value={segment.priceQuote === 0 ? '' : segment.priceQuote?.toString() || ''}
+                  placeholder="0.00"
+                  value={segment.priceQuote || ''}
                   onChange={(e) => {
-                    const priceStr = e.target.value.replace(',', '.');
-                    const val = parseFloat(priceStr) || 0;
+                    const val = parseFloat(e.target.value) || 0;
                     onUpdate(segment.id, 'priceQuote', val);
                   }}
                 />

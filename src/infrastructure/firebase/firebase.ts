@@ -1,13 +1,23 @@
 // ============================================================
 // INFRASTRUCTURE — Firebase
-// Movido de src/firebase.ts para src/infrastructure/firebase/firebase.ts.
-// Firebase Auth REMOVIDO desta camada — gerenciado pelo IdentityProvider.
-// Mantém apenas db (Firestore) e utilitários de erro.
+// Configuração lida 100% de variáveis de ambiente (.env).
+// Não há mais credenciais fixas no código-fonte.
 // ============================================================
 
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import firebaseConfig from '../../../firebase-applet-config.json';
+import { getAuth } from 'firebase/auth';
+
+const firebaseConfig = {
+  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY as string,
+  authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string,
+  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID as string,
+  storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET as string,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID as string,
+  appId:             import.meta.env.VITE_FIREBASE_APP_ID as string,
+};
+
+const firestoreDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID as string | undefined;
 
 // Evita inicialização dupla (hot reload do Vite)
 const app = getApps().length > 0
@@ -15,7 +25,13 @@ const app = getApps().length > 0
   : initializeApp(firebaseConfig);
 
 // Firestore — banco de dados principal
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Suporta database ID customizado via variável de ambiente
+export const db = firestoreDatabaseId
+  ? getFirestore(app, firestoreDatabaseId)
+  : getFirestore(app);
+
+// Auth — serviço de autenticação
+export const auth = getAuth(app);
 
 // ──────────────────────────────────────────────
 // Tipos de operação (para logging estruturado)
