@@ -3,8 +3,8 @@
  */
 
 export const API_CONFIG = {
-  // Base para todas as consultas SQL via RM Framework
-  RM_SQL_BASE_URL: 'https://drconstrutora116480.rm.cloudtotvs.com.br:8051/api/framework/v1/consultaSQLServer/RealizaConsulta',
+  // Base para todas as consultas SQL via RM Framework para ProduÃ§Ã£o
+  RM_SQL_BASE_URL: import.meta.env.VITE_RM_SQL_BASE_URL || 'https://drconstrutora116480.rm.cloudtotvs.com.br:8051/api/framework/v1/consultaSQLServer/RealizaConsulta',
   TIMEOUT_MS: 15000, 
   SENTENCES: {
     FERIAS: 'VENCIMENTO_FER',
@@ -16,5 +16,5 @@ export const API_CONFIG = {
 
 export const AUTH_HEADERS = {
   'Content-Type': 'application/json',
-  'Authorization': 'Basic YXBpOmRyZHJAUHJvdiEh', // api:drdr@Prov!!
+  'Authorization': import.meta.env.VITE_RM_AUTHORIZATION || 'Basic YXBpOmRyZHJAUHJvdiEh', 
 };

@@ -19,7 +19,7 @@ export const POLICY_RULES: Record<string, PolicyRule> = {
   'FOL_003': {
     code: 'FOL_003',
     severity: PolicySeverity.BLOCK,
-    message: 'A duração solicitada excede o limite de 5 dias úteis permitido pela política.',
+    message: 'A duração solicitada excede o limite permitido pela política.',
   },
 
   // Regras de Férias

@@ -2,7 +2,7 @@ import React from 'react';
 import { Timer, UserCheck, AlertCircle } from 'lucide-react';
 import { EmployeeRayXData } from '../../application/hooks/useEmployeeRayX';
 import { cn } from '../../lib/utils';
-import { format, parseISO, differenceInDays, isBefore } from 'date-fns';
+import { format, parseISO, differenceInDays, isBefore, startOfDay } from 'date-fns';
 
 interface EmployeeRayXTableProps {
   data: EmployeeRayXData[];
@@ -23,7 +23,7 @@ export function EmployeeRayXTable({ data }: EmployeeRayXTableProps) {
     if (!deadlineStr) return null;
     try {
       const deadline = parseISO(deadlineStr);
-      const today = new Date();
+      const today = startOfDay(new Date());
       const daysLeft = differenceInDays(deadline, today);
 
       if (isBefore(deadline, today)) {
@@ -53,14 +53,14 @@ export function EmployeeRayXTable({ data }: EmployeeRayXTableProps) {
   /**
    * Status de Janela de Compra com Estética de Cápsula
    */
-  const getPredictedStatus = (predictedStr?: string) => {
+  const getPredictedStatus = (predictedStr: string | undefined, category: EmployeeRayXData['category']) => {
     if (!predictedStr) return null;
     try {
       const predicted = parseISO(predictedStr);
-      const today = new Date();
+      const today = startOfDay(new Date());
       const daysDiff = differenceInDays(predicted, today);
 
-      if (isBefore(predicted, today)) {
+      if (category === 'VENCIDA') {
         return (
           <div className="flex flex-col items-center gap-1">
             <span className="text-[10px] font-black text-white uppercase tracking-tighter bg-red-900 px-3 py-1 rounded-full shadow-lg shadow-red-900/20 leading-none flex items-center gap-2">
@@ -71,28 +71,28 @@ export function EmployeeRayXTable({ data }: EmployeeRayXTableProps) {
         );
       }
 
-      if (daysDiff < 30) {
+      if (category === 'NAO_RECOMENDAVEL') {
         return (
           <span className="px-3 py-1 bg-purple-50 text-purple-600 border border-purple-100 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm">
             Não recomendável compra
           </span>
         );
       }
-      if (daysDiff >= 30 && daysDiff < 45) {
+      if (category === 'ALTA') {
         return (
           <span className="px-3 py-1 bg-red-50 text-red-600 border border-red-100 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm">
             Alta Atenção aos Preços
           </span>
         );
       }
-      if (daysDiff >= 45 && daysDiff < 60) {
+      if (category === 'MEDIA') {
         return (
           <span className="px-3 py-1 bg-orange-50 text-orange-600 border border-orange-100 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm">
             Média Atenção aos Preços
           </span>
         );
       }
-      if (daysDiff >= 60 && daysDiff <= 90) {
+      if (category === 'IDEAL') {
         return (
           <span className="px-3 py-1 bg-blue-50 text-blue-600 border border-blue-100 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm">
             Ideal para Compra
@@ -114,7 +114,7 @@ export function EmployeeRayXTable({ data }: EmployeeRayXTableProps) {
     if (!lastTimeOffStr) return null;
     try {
       const last = parseISO(lastTimeOffStr);
-      const today = new Date();
+      const today = startOfDay(new Date());
       const daysSince = differenceInDays(today, last);
       const match = ruleStr?.match(/A cada (\d+) dias/);
       const threshold = match ? parseInt(match[1], 10) : 90;
@@ -143,7 +143,7 @@ export function EmployeeRayXTable({ data }: EmployeeRayXTableProps) {
   };
 
   const getVacationStatus = (item: EmployeeRayXData) => {
-    const today = new Date();
+    const today = startOfDay(new Date());
     
     if (item.programmedStart && item.programmedEnd) {
       try {
@@ -276,14 +276,14 @@ export function EmployeeRayXTable({ data }: EmployeeRayXTableProps) {
                        <span className="text-sm font-black text-slate-900 tracking-tight">
                          {formatDate(item.predictedTimeOff)}
                        </span>
-                       {getPredictedStatus(item.predictedTimeOff)}
+                       {getPredictedStatus(item.predictedTimeOff, item.category)}
                     </div>
                   </td>
                   <td className="px-8 py-7 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <span className={cn(
                         "text-sm font-black tracking-tight",
-                        item.vacationDeadline && isBefore(parseISO(item.vacationDeadline), new Date()) ? "text-red-700 font-black" : "text-slate-800"
+                        item.vacationDeadline && isBefore(parseISO(item.vacationDeadline), startOfDay(new Date())) ? "text-red-700 font-black" : "text-slate-800"
                       )}>
                         {formatDate(item.vacationDeadline)}
                       </span>
