@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { IdentityProvider } from './application/identity/IdentityContext';
 import { useIdentity } from './application/identity/IdentityContext';
 import { Layout, AppTab } from './components/Layout';
+import { LoginPage } from './components/auth/LoginPage';
 import { TravelForm } from './components/TravelForm';
 import { TravelList } from './components/TravelList';
 import { Dashboard } from './components/Dashboard';
@@ -20,7 +21,7 @@ import type { TravelRequest } from './domain/types';
 // ──────────────────────────────────────────────
 
 function AppContent() {
-  const { currentUser } = useIdentity();
+  const { currentUser, isLoading } = useIdentity();
   const [activeTab, setActiveTab] = useState<AppTab>('requests');
   const [editingRequest, setEditingRequest] = useState<TravelRequest | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -36,6 +37,18 @@ function AppContent() {
   };
 
   const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-900">
+          <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      );
+    }
+
+    if (!currentUser) {
+      return <LoginPage />;
+    }
+
     // Formulário sobrepõe qualquer aba quando aberto
     if (showForm) {
       return (
@@ -65,6 +78,10 @@ function AppContent() {
         return null;
     }
   };
+
+  if (isLoading || !currentUser) {
+    return renderContent();
+  }
 
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab}>

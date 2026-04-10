@@ -1,12 +1,11 @@
 // ============================================================
 // INFRASTRUCTURE — Firebase
-// Movido de src/firebase.ts para src/infrastructure/firebase/firebase.ts.
-// Firebase Auth REMOVIDO desta camada — gerenciado pelo IdentityProvider.
-// Mantém apenas db (Firestore) e utilitários de erro.
+// Firebase Auth restaurado para produção
 // ============================================================
 
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 import firebaseConfig from '../../../firebase-applet-config.json';
 
 // Evita inicialização dupla (hot reload do Vite)
@@ -16,6 +15,9 @@ const app = getApps().length > 0
 
 // Firestore — banco de dados principal
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+
+// Auth — serviço de identidade nativa (Produção)
+export const auth = getAuth(app);
 
 // ──────────────────────────────────────────────
 // Tipos de operação (para logging estruturado)

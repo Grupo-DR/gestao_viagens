@@ -7,14 +7,15 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { UserRole } from '../../domain/enums';
 import type { UserProfile } from '../../domain/types';
-import { localIdentityProvider } from './localIdentityProvider';
+import { firebaseIdentityProvider } from './firebaseIdentityProvider';
 
 // ──────────────────────────────────────────────
 // Contrato do context
 // ──────────────────────────────────────────────
 
 interface IdentityContextValue {
-  currentUser: UserProfile;
+  currentUser: UserProfile | null;
+  isLoading: boolean;
   /** Troca o papel do usuário sem reiniciar a aplicação */
   switchRole: (role: UserRole) => void;
   /** Encerra a sessão provisória */
@@ -48,24 +49,34 @@ interface IdentityProviderProps {
 }
 
 export function IdentityProvider({ children }: IdentityProviderProps) {
-  // Estado inicializado a partir do adapter local (localStorage)
-  const [currentUser, setCurrentUser] = useState<UserProfile>(
-    () => localIdentityProvider.getProfile()
-  );
+  // Estado inicializado via observer do Firebase
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  React.useEffect(() => {
+    firebaseIdentityProvider.onAuthStateChanged((profile) => {
+      setCurrentUser(profile);
+      setIsLoading(false);
+    });
+  }, []);
 
   const switchRole = useCallback((role: UserRole) => {
-    const updated = localIdentityProvider.switchRole(role);
-    setCurrentUser(updated);
+    try {
+      const updated = firebaseIdentityProvider.switchRole(role);
+      setCurrentUser(updated);
+    } catch (e) {
+      console.warn('Switch role temporariamente indisponível no perfil remoto');
+    }
   }, []);
 
   const logout = useCallback(() => {
-    localIdentityProvider.logout();
-    // Na fase provisória simplesmente recarrega — Firebase Auth faria o redirect
+    firebaseIdentityProvider.logout();
     window.location.reload();
   }, []);
 
   const value: IdentityContextValue = {
     currentUser,
+    isLoading,
     switchRole,
     logout,
   };
