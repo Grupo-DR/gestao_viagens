@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { RequestStatus, PurchaseInfo } from '../../domain/enums.ts';
-import { TravelRequest } from '../../domain/types.ts';
+import { RequestStatus } from '../../domain/enums';
+import { TravelRequest, PurchaseInfo } from '../../domain/types';
 import { useIdentity } from '../identity/IdentityContext.tsx';
 import { useToast } from './useToast.ts'; // Agora centralizado em src/application/hooks/
 import { changeRequestStatus, deleteTravelRequest } from '../services/travelRequestService.ts';

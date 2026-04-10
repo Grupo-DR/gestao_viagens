@@ -88,7 +88,7 @@ interface LayoutProps {
 }
 
 export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
-  const { currentUser, logout, switchRole } = useIdentity();
+  const { currentUser, logout } = useIdentity();
 
   if (!currentUser) return null;
 
@@ -146,11 +146,6 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
                   )}
                 />
                 {item.label}
-                {isMasterTab && (
-                  <span className="ml-auto text-[8px] font-black text-purple-400 uppercase tracking-widest">
-                    DEV
-                  </span>
-                )}
               </button>
             );
           })}

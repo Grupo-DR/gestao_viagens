@@ -1,16 +1,14 @@
 import React from 'react';
 import { Plane, Plus } from 'lucide-react';
-import { TravelSegment } from '../../../domain/types.ts';
-import { TravelSegmentCard } from './TravelSegmentCard.tsx';
-import { cn } from '../../../lib/utils.ts';
+import { TravelSegment } from '../../../domain/types';
+import { TravelSegmentCard } from './TravelSegmentCard';
+import { createNewSegment } from '../../../domain/travelSegment.helpers';
+import { cn } from '../../../lib/utils';
 
 interface TravelItinerarySectionProps {
   segments: TravelSegment[];
   justification: string;
-  segmentErrors?: Record<string, string[]>;
-  onAddSegment: () => void;
-  onRemoveSegment: (id: string) => void;
-  onUpdateSegment: <K extends keyof TravelSegment>(id: string, field: K, value: TravelSegment[K]) => void;
+  onSegmentsChange: (segments: TravelSegment[]) => void;
   onFieldChange: (field: string, value: any) => void;
 }
 
@@ -24,12 +22,30 @@ const INPUT_CLASS =
 export function TravelItinerarySection({
   segments,
   justification,
-  segmentErrors = {},
-  onAddSegment,
-  onRemoveSegment,
-  onUpdateSegment,
+  onSegmentsChange,
   onFieldChange,
 }: TravelItinerarySectionProps) {
+
+  const handleAddSegment = () => {
+    const newSegment = createNewSegment(segments.length);
+    onSegmentsChange([...segments, newSegment]);
+  };
+
+  const handleRemoveSegment = (id: string) => {
+    if (segments.length <= 1) return;
+    const filtered = segments.filter(s => s.id !== id);
+    // Reordenar após remoção
+    const reordered = filtered.map((s, i) => ({ ...s, order: i }));
+    onSegmentsChange(reordered);
+  };
+
+  const handleUpdateSegment = <K extends keyof TravelSegment>(id: string, field: K, value: TravelSegment[K]) => {
+    const updated = segments.map(s => 
+      s.id === id ? { ...s, [field]: value } : s
+    );
+    onSegmentsChange(updated);
+  };
+
   return (
     <section className="space-y-10 animate-in fade-in duration-500 delay-100">
       
@@ -45,7 +61,7 @@ export function TravelItinerarySection({
 
         <button 
           type="button"
-          onClick={onAddSegment}
+          onClick={handleAddSegment}
           className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-[20px] text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-200 hover:bg-blue-700 hover:-translate-y-0.5 transition-all active:scale-95"
         >
           <Plus className="w-4 h-4" /> Adicionar Trecho
@@ -60,11 +76,16 @@ export function TravelItinerarySection({
             segment={segment}
             index={index}
             totalSegments={segments.length}
-            errors={segmentErrors[segment.id]}
-            onUpdate={onUpdateSegment}
-            onRemove={onRemoveSegment}
+            onUpdate={handleUpdateSegment}
+            onRemove={handleRemoveSegment}
           />
         ))}
+        {segments.length === 0 && (
+          <div className="py-12 border-2 border-dashed border-slate-100 rounded-[32px] flex flex-col items-center justify-center text-slate-300 gap-3">
+             <Plus className="w-8 h-8 opacity-20" />
+             <p className="text-xs font-bold uppercase tracking-widest">Nenhum trecho adicionado</p>
+          </div>
+        )}
       </div>
 
       {/* Justificativa Operacional (Global p/ Solicitação) */}

@@ -1,21 +1,12 @@
 import React from 'react';
 import { CheckCircle2, XCircle, AlertCircle, Info, X } from 'lucide-react';
-import { cn } from '../../lib/utils.ts';
-import { useToast } from '../../application/hooks/useToast.ts';
+import { cn } from '../../lib/utils';
+import { useToast, ToastMessage, ToastType } from '../../application/hooks/useToast';
 
 /**
  * Toast Component (Sprint 3)
  * Componente puro de renderização de notificações.
  */
-
-export type ToastType = 'success' | 'error' | 'warning' | 'info';
-
-export interface ToastMessage {
-  id: string;
-  type: ToastType;
-  title: string;
-  message?: string;
-}
 
 export function ToastContainer() {
   const { toasts, removeToast } = useToast();
@@ -24,7 +15,7 @@ export function ToastContainer() {
 
   return (
     <div className="fixed bottom-8 right-8 z-[100] flex flex-col gap-3 max-w-sm w-full pointer-events-none">
-      {toasts.map((toast) => (
+      {toasts.map((toast: ToastMessage) => (
         <div
           key={toast.id}
           className={cn(

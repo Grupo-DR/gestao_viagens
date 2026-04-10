@@ -29,9 +29,10 @@ export function createEmptySegment(order: number, direction: TravelDirection = '
     arrivalDateTime: '',
     baggageRequired: false,
     airlineQuote: '',
-    priceQuote: 0,
   };
 }
+
+export const createNewSegment = createEmptySegment;
 
 /**
  * Reindexa a ordem dos trechos sequencialmente (1, 2, 3...).

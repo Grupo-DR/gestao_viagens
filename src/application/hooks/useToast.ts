@@ -1,5 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ToastMessage, ToastType } from '../components/ui/Toast.tsx';
+
+export type ToastType = 'success' | 'error' | 'warning' | 'info';
+
+export interface ToastMessage {
+  id: string;
+  type: ToastType;
+  title: string;
+  message?: string;
+}
 
 /**
  * Toast Hook Interface — useToast (Sprint 3)

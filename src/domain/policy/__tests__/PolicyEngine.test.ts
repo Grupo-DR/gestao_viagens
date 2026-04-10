@@ -17,7 +17,8 @@ describe('PolicyEngine (Domain Layer)', () => {
     LIMITE: '2025-12-31',
     PRAZO: '2024-12-31',
     PROGR_INICIO: '2024-06-01',
-    PROGR_FIM: '2024-06-30'
+    PROGR_FIM: '2024-06-30',
+    CODCUSTO: '1'
   };
 
   describe('evaluateTimeOff', () => {

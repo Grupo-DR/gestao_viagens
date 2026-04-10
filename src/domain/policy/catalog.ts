@@ -38,6 +38,23 @@ export const POLICY_RULES: Record<string, PolicyRule> = {
     severity: PolicySeverity.WARNING,
     message: 'O período solicitado sobrepõe o período de abono (PROGR_ABONO).',
   },
+  'FER_005': {
+    code: 'FER_005',
+    severity: PolicySeverity.BLOCK,
+    message: 'A data de início ultrapassa o limite legal para gozo (PRAZO).',
+  },
+  'FER_006': {
+    code: 'FER_006',
+    severity: PolicySeverity.BLOCK,
+    message: 'Saldo de férias insuficiente para a solicitação.',
+  },
+
+  // Regras Geográficas
+  'GEO_001': {
+    code: 'GEO_001',
+    severity: PolicySeverity.WARNING,
+    message: 'O destino final da solicitação diverge da cidade de residência cadastrada (RM).',
+  },
 
   // Regras Gerais
   'GEN_001': {

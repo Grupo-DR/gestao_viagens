@@ -1,16 +1,21 @@
 import { ExternalVacationDTO, ExternalTimeOffDTO } from '../dtos/ExternalEmployeeDTO';
-import { EmployeeInfo, ValidationInfo } from '../../domain/types';
-import { EmploymentStatus, ValidationStatus } from '../../domain/enums';
+import { 
+  EmployeeInfo, 
+  VacationValidation,
+  TimeOffValidation
+} from '../../domain/types';
+import { EmploymentStatus } from '../../domain/enums';
 
 /**
- * Funções puras para mapear respostas de SQL do Protheus/Chronos para o modelo interno.
+ * Funções puras para mapear respostas de SQL do RM TOTVS DR Construtora.
+ * Versão Final (v3): Retorna interfaces de validação tipadas para o motor de regras.
  */
 export const EmployeeMapper = {
   
   /**
-   * Mapeia dados básicos e de férias.
+   * Mapeia dados básicos do colaborador.
    */
-  mapToEmployeeInfo(vacation: ExternalVacationDTO): EmployeeInfo {
+  mapToEmployeeInfo(data: ExternalVacationDTO): EmployeeInfo {
     const statusMap: Record<string, EmploymentStatus> = {
       'A': EmploymentStatus.ATIVO,
       'D': EmploymentStatus.DEMITIDO,
@@ -18,44 +23,85 @@ export const EmployeeMapper = {
     };
 
     return {
-      chapa: vacation.RA_CHAPA,
-      employeeName: vacation.RA_NOME,
-      functionName: vacation.RA_CARGO,
-      employmentStatus: statusMap[vacation.RA_SITUA] || EmploymentStatus.ATIVO,
-      directOrIndirect: undefined, // Esta informação não veio nestes endpoints
+      chapa: data.CHAPA,
+      employeeName: data.NOME,
+      functionName: data.FUNCAO,
+      employmentStatus: statusMap[data.CODSITUACAO] || EmploymentStatus.ATIVO,
+      directOrIndirect: undefined,
     };
   },
 
   /**
-   * Converte períodos de férias brutos em ValidationInfo.
+   * Converte períodos de férias brutos em VacationValidation (v3).
    */
-  mapToVacationValidation(vacation: ExternalVacationDTO): ValidationInfo {
-    const start = vacation.DATA_INICIO_PERIODO;
-    const end = vacation.DATA_FIM_PERIODO;
+  mapToVacationValidation(data: ExternalVacationDTO): VacationValidation {
+    // O RM retorna ISO String ou 'YYYY-MM-DD'
+    const formatDate = (raw: string) => raw ? raw.split('T')[0] : '';
     
-    // Normalização de data YYYYMMDD -> YYYY-MM-DD
-    const formatDate = (raw: string) => 
-      raw && raw.length === 8 ? `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}` : undefined;
-
     return {
-      validationRequired: true,
-      validationType: 'Férias',
-      validationStatus: vacation.ELEGIVEL === 'S' ? ValidationStatus.PENDENTE : ValidationStatus.REPROVADA,
-      validationSummary: `Saldo: ${vacation.SALDO_DIAS} dias. Período: ${formatDate(start)} a ${formatDate(end)}.`,
-      blockingReasons: vacation.ELEGIVEL === 'N' ? ['Saldo insuficiente ou período não permitido'] : [],
+      chapa: data.CHAPA,
+      hasBalance: data.SALDO > 0,
+      vacationDays: data.SALDO || 0,
+      accruedDays: 30, // Padrão CLT
+      periodStart: formatDate(data.INICIOPERAQUIS),
+      periodEnd: formatDate(data.FIMPERAQUIS),
+      limitDate: formatDate(data.LIMITE || data.PRAZO),
+      isExpired: data.PRAZO ? new Date(data.PRAZO) < new Date() : false
     };
   },
 
   /**
-   * Converte saldo de folga em ValidationInfo.
+   * Converte saldo de folga em TimeOffValidation (v3).
    */
-  mapToTimeOffValidation(timeOff: ExternalTimeOffDTO): ValidationInfo {
+  mapToTimeOffValidation(data: ExternalTimeOffDTO): TimeOffValidation {
+    const nextDate = data.DATA_PREVISTA ? new Date(data.DATA_PREVISTA) : null;
+    const isEligible = nextDate ? nextDate <= new Date() : false;
+
     return {
-      validationRequired: true,
-      validationType: 'Folga',
-      validationStatus: timeOff.FOLGAS_DISPONIVEIS > 0 ? ValidationStatus.PENDENTE : ValidationStatus.REPROVADA,
-      validationSummary: `Folgas disponíveis: ${timeOff.FOLGAS_DISPONIVEIS}. Saldo horas: ${timeOff.SALDO_HORAS}.`,
-      blockingReasons: timeOff.FOLGAS_DISPONIVEIS <= 0 ? ['Sem saldo de folgas cadastrado no Chronos'] : [],
+      chapa: data.CHAPA,
+      balance: isEligible ? 1 : 0, // No modelo RM, se passou da data é 1 folga
+      isEligible
     };
+  },
+
+  /** 
+   * Mapeia lista de Centros de Custo (Extraídos de DESCRICAO única do RM)
+   */
+  mapToCostCenterList(raw: ExternalVacationDTO[]): { code: string; label: string }[] {
+    const uniqueKeys = new Set<string>();
+    const list: { code: string; label: string }[] = [];
+
+    raw.forEach(item => {
+      const ccName = String(item.DESCRICAO || '').trim();
+      if (ccName && !uniqueKeys.has(ccName)) {
+        uniqueKeys.add(ccName);
+        list.push({
+          code: ccName,
+          label: ccName
+        });
+      }
+    });
+
+    return list.sort((a, b) => a.label.localeCompare(b.label));
+  },
+
+  /** 
+   * Mapeia lista de Colaboradores de um CC, garantindo chaves únicas de chapa.
+   */
+  mapToEmployeeSummaryList(raw: ExternalVacationDTO[]): { chapa: string; name: string }[] {
+    const uniqueChapas = new Set<string>();
+
+    return raw.reduce((acc, item) => {
+      const chapa = String(item.CHAPA || '').trim();
+      if (!chapa || uniqueChapas.has(chapa)) return acc;
+
+      uniqueChapas.add(chapa);
+      acc.push({
+        chapa,
+        name: String(item.NOME || '').trim(),
+      });
+
+      return acc;
+    }, [] as { chapa: string; name: string }[]);
   }
 };

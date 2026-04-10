@@ -154,6 +154,39 @@ export function getStatusColor(status: RequestStatus | string): string {
   }
 }
 
+/**
+ * Retorna o rótulo amigável para o status.
+ */
+export function getStatusLabel(status: RequestStatus): string {
+  switch (status) {
+    case RequestStatus.RASCUNHO:               return 'Rascunho';
+    case RequestStatus.ENVIADA:                return 'Enviada';
+    case RequestStatus.EM_VALIDACAO_CH:        return 'Em Validação CH';
+    case RequestStatus.PENDENTE_CORRECAO:      return 'Pendente de Correção';
+    case RequestStatus.DISPONIVEL_PARA_COMPRA: return 'Disponível para Compra';
+    case RequestStatus.REPROVADA:              return 'Reprovada';
+    case RequestStatus.CANCELADA:              return 'Cancelada';
+    case RequestStatus.EMITIDA:                return 'Bilhete Emitido';
+    case RequestStatus.CONCLUIDA:              return 'Concluída';
+    default:                                   return status;
+  }
+}
+
+/**
+ * Retorna o rótulo do botão de ação baseado no status de destino.
+ */
+export function getActionLabel(targetStatus: RequestStatus): string {
+  switch (targetStatus) {
+    case RequestStatus.EM_VALIDACAO_CH:        return 'Enviar para CH';
+    case RequestStatus.DISPONIVEL_PARA_COMPRA: return 'Aprovar / Liberar';
+    case RequestStatus.REPROVADA:              return 'Reprovar';
+    case RequestStatus.PENDENTE_CORRECAO:      return 'Solicitar Correção';
+    case RequestStatus.EMITIDA:                return 'Confirmar Emissão';
+    case RequestStatus.CANCELADA:              return 'Cancelar';
+    default:                                   return 'Avançar';
+  }
+}
+
 // ──────────────────────────────────────────────
 // Mapeador de compatibilidade (Legado → v2)
 // ──────────────────────────────────────────────
@@ -257,10 +290,23 @@ export function getPassengerDisplayName(request: TravelRequest): string {
 }
 
 /**
- * Retorna a rota formatada para exibição: "origin → destination"
+ * Retorna a rota formatada para exibição.
+ * Prioriza a lista de segmentos (v3). Se não houver, usa os campos legados (v2).
  */
 export function formatRoute(request: TravelRequest): string {
-  const { origin, destination } = request.travel;
+  const { segments, origin, destination } = request.travel;
+
+  // Versão Multitrecho (v3)
+  if (segments && segments.length > 0) {
+    const points: string[] = [];
+    segments.forEach((seg, index) => {
+      if (index === 0) points.push(seg.origin);
+      points.push(seg.destination);
+    });
+    return points.join(' → ');
+  }
+
+  // Versão Legada (v2)
   if (origin && destination) return `${origin} → ${destination}`;
   if (destination) return destination;
   return '—';

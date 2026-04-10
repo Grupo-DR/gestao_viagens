@@ -12,6 +12,7 @@ import {
   updateTravelRequest,
 } from '../services/travelRequestService';
 import { PolicyDecision } from '../../domain/policy/types';
+import { normalizeSegmentsFromTravel } from '../../domain/travelSegment.helpers';
 
 // ──────────────────────────────────────────────
 // Estado inicial do formulário
@@ -23,7 +24,10 @@ function buildInitialState(editing: TravelRequest | null): TravelRequestFormData
       chapa: '',
       employeeName: '',
       functionName: '',
+      cpf: '',
+      birthDate: '',
       reason: TravelReason.VISITA_TECNICA,
+      segments: [],
       origin: '',
       destination: '',
       departureDateTime: '',
@@ -38,12 +42,15 @@ function buildInitialState(editing: TravelRequest | null): TravelRequestFormData
     };
   }
 
-  // Preenche com dados do modelo v2
+  // Preenche com dados do modelo v3
   return {
     chapa: editing.employee.chapa ?? '',
     employeeName: editing.employee.employeeName ?? '',
     functionName: editing.employee.functionName ?? '',
+    cpf: editing.employee.cpf ?? '',
+    birthDate: editing.employee.birthDate ?? '',
     reason: editing.travel.reason ?? TravelReason.VISITA_TECNICA,
+    segments: editing.travel.segments ?? normalizeSegmentsFromTravel(editing.travel),
     origin: editing.travel.origin ?? '',
     destination: editing.travel.destination ?? '',
     departureDateTime: editing.travel.departureDateTime ?? '',

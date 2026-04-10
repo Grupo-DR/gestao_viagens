@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { evaluateTravelPolicy } from '../use-cases/evaluateTravelPolicy.ts';
 import { dateService } from '../services/dateService.ts';
-import { PolicyDecision } from '../../domain/policy/types.ts';
+import { TravelPolicyEvaluation } from '../../domain/policy/types.ts';
 import { TravelRequestFormData } from '../../domain/types.ts';
 import { EmployeeIntegrationResult } from '../use-cases/fetchEmployeeIntegrationData.ts';
 
@@ -13,7 +13,7 @@ export function usePolicyEvaluation(
   formData: TravelRequestFormData,
   integrationData: EmployeeIntegrationResult | null
 ) {
-  const [policyDecision, setPolicyDecision] = useState<PolicyDecision | null>(null);
+  const [evaluation, setEvaluation] = useState<TravelPolicyEvaluation | null>(null);
 
   useEffect(() => {
     // 1. Resolve datas normalizadas via adaptador
@@ -21,28 +21,21 @@ export function usePolicyEvaluation(
     
     // 2. Trava de segurança: Só avalia se houver colaborador e data de início
     if (!formData.chapa || !startDate) {
-      setPolicyDecision(null);
+      setEvaluation(null);
       return;
     }
 
     // 3. Executa o caso de uso de domínio (mantendo pureza)
-    const decision = evaluateTravelPolicy(
+    const result = evaluateTravelPolicy(
       formData.reason,
       startDate,
       endDate,
-      integrationData
+      integrationData,
+      formData.segments
     );
 
-    setPolicyDecision(decision);
-  }, [
-    formData.chapa, 
-    formData.reason, 
-    formData.leaveStartDate, 
-    formData.leaveEndDate, 
-    formData.departureDateTime, 
-    formData.returnDateTime, 
-    integrationData
-  ]);
+    setEvaluation(result);
+  }, [formData, integrationData]);
 
-  return { policyDecision };
+  return { evaluation };
 }

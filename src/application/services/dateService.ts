@@ -1,4 +1,5 @@
 import { TravelReason } from '../../domain/enums.ts';
+import { deriveTravelSummaryFromSegments } from '../../domain/travelSegment.helpers.ts';
 import type { TravelRequestFormData } from '../../domain/types.ts';
 
 /**
@@ -34,9 +35,14 @@ export const dateService = {
       };
     }
 
-    // Para outros motivos, extrai do itinerário
-    const departureDate = this.formatToIsoDate(formData.departureDateTime);
-    const returnDate = this.formatToIsoDate(formData.returnDateTime);
+    // Para outros motivos, extrai do itinerário a partir dos segmentos ou dos campos raiz legados.
+    const summary = deriveTravelSummaryFromSegments(formData.segments || []);
+    const departureDate =
+      this.formatToIsoDate(formData.departureDateTime) ||
+      this.formatToIsoDate(summary.departureDateTime);
+    const returnDate =
+      this.formatToIsoDate(formData.returnDateTime) ||
+      this.formatToIsoDate(summary.returnDateTime);
 
     return {
       startDate: departureDate,
