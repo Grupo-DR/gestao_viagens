@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { X, CheckCircle, ShieldAlert, ShoppingCart, Loader2 } from 'lucide-react';
-import { TravelRequest, PurchaseInfo } from '../../domain/types.ts';
+import { 
+  X, CheckCircle, ShieldAlert, ShoppingCart, Loader2, Mail, 
+  Plane, Bus, MapPin, Luggage, XCircle 
+} from 'lucide-react';
+import { TravelRequest, PurchaseInfo, TravelSegment } from '../../domain/types.ts';
 import { RequestStatus, UserRole } from '../../domain/enums.ts';
 import { getPassengerDisplayName, formatRoute } from '../../domain/travelRequest.rules.ts';
 import { PolicyDecisionPanel } from './PolicyDecisionPanel.tsx';
 import { AuditTimeline } from './AuditTimeline.tsx';
 import { PurchaseForm } from './PurchaseForm.tsx';
+import { ApprovalEmailBox } from './ApprovalEmailBox.tsx';
 import { cn } from '../../lib/utils.ts';
-import { Plane, Bus, MapPin, Luggage } from 'lucide-react';
 import { normalizeSegmentsFromTravel } from '../../domain/travelSegment.helpers';
 
 interface TravelRequestDetailsModalProps {
@@ -19,7 +22,8 @@ interface TravelRequestDetailsModalProps {
     request: TravelRequest, 
     newStatus: RequestStatus, 
     comment: string, 
-    purchaseInfo?: Partial<PurchaseInfo>
+    purchaseInfo?: Partial<PurchaseInfo>,
+    updatedSegments?: TravelSegment[]
   ) => Promise<boolean>;
   isUpdating?: boolean;
 }
@@ -38,6 +42,7 @@ export function TravelRequestDetailsModal({
 }: TravelRequestDetailsModalProps) {
   const [comment, setComment] = useState('');
   const [showPurchaseForm, setShowPurchaseForm] = useState(false);
+  const [showEmailBox, setShowEmailBox] = useState(false);
 
   // Permissões de Ação
   const isHR = currentUserRole === UserRole.CAPITAL_HUMANO || currentUserRole === UserRole.ADMINISTRATIVO || currentUserRole === UserRole.MASTER;
@@ -45,6 +50,14 @@ export function TravelRequestDetailsModal({
   
   const canApproveHR = isHR && request.status === RequestStatus.EM_VALIDACAO_CH;
   const canBuy = isBuyer && [RequestStatus.DISPONIVEL_PARA_COMPRA, RequestStatus.APROVADA].includes(request.status);
+  
+  // Novas permissões de governança (Comprador pode registrar aprovacao externa)
+  const canApprovePurchase = (currentUserRole === UserRole.MASTER || currentUserRole === UserRole.GESTOR || currentUserRole === UserRole.COMPRADOR) && 
+                              request.status === RequestStatus.AGUARDANDO_APROVACAO_COMPRA;
+                              
+  const canFinalizeEmission = isBuyer && request.status === RequestStatus.EM_PROCESSO_DE_COMPRA;
+  
+  const isRejectedPurchase = request.status === RequestStatus.COMPRA_RECUSADA;
 
   const handleAction = async (newStatus: RequestStatus) => {
     const success = await onUpdateStatus(request, newStatus, comment);
@@ -54,8 +67,14 @@ export function TravelRequestDetailsModal({
     }
   };
 
-  const handlePurchase = async (info: Partial<PurchaseInfo>, purchaseComment: string) => {
-    const success = await onUpdateStatus(request, RequestStatus.EMITIDA, purchaseComment, info);
+  const handlePurchase = async (info: Partial<PurchaseInfo>, purchaseComment: string, updatedSegments?: TravelSegment[], nextStatus?: RequestStatus) => {
+    const success = await onUpdateStatus(
+      request, 
+      nextStatus || RequestStatus.EMITIDA, 
+      purchaseComment, 
+      info, 
+      updatedSegments
+    );
     if (success) onClose();
   };
 
@@ -85,122 +104,220 @@ export function TravelRequestDetailsModal({
         </div>
 
         {/* Body com Scroll Suave */}
-        <div className="p-8 overflow-y-auto space-y-10 scrollbar-thin scrollbar-thumb-slate-200 flex-1 bg-white">
-          {/* Grid de Informações Base */}
-          <div className="grid grid-cols-2 gap-x-10 gap-y-8">
-            {[
-              { label: 'Passageiro', value: getPassengerDisplayName(request) },
-              { label: 'CHAPA', value: request.employee.chapa || '—' },
-              { label: 'CPF', value: request.employee.cpf
-                ? request.employee.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
-                : '—' },
-              { label: 'Data de Nascimento', value: request.employee.birthDate
-                ? new Date(request.employee.birthDate + 'T12:00:00').toLocaleDateString('pt-BR')
-                : '—' },
-              { label: 'Motivo', value: request.travel.reason },
-              { label: 'Centro de Custo', value: request.travel.costCenter },
-              { label: 'Rota Resumida', value: formatRoute(request) },
-              { label: 'Projeto', value: request.travel.projectCode || 'Consumo Interno' }
-            ].map((item) => (
-              <div key={item.label} className="group">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-1.5 transition-colors group-hover:text-blue-500">{item.label}</label>
-                <p className="text-slate-800 font-bold text-sm leading-tight italic">{item.value}</p>
+        <div className="p-8 overflow-y-auto space-y-12 scrollbar-thin scrollbar-thumb-slate-200 flex-1 bg-white">
+          
+          {/* 1. DADOS DO COLABORADOR */}
+          <section className="space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
+              <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest italic">Dados do Colaborador</h4>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pl-4">
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Centro de Custo</label>
+                <p className="text-xs font-bold text-slate-700">{request.travel.costCenter}</p>
               </div>
-            ))}
-          </div>
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Chapa</label>
+                <p className="text-xs font-bold text-slate-700">{request.employee.chapa}</p>
+              </div>
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Nome Completo</label>
+                <p className="text-xs font-bold text-slate-700">{getPassengerDisplayName(request)}</p>
+              </div>
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">CPF</label>
+                <p className="text-xs font-bold text-slate-700">
+                  {request.employee.cpf?.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') || '—'}
+                </p>
+              </div>
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Data de Nascimento</label>
+                <p className="text-xs font-bold text-slate-700">
+                  {request.employee.birthDate ? format(new Date(request.employee.birthDate + 'T12:00:00'), 'dd/MM/yyyy') : '—'}
+                </p>
+              </div>
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Motivo da Viagem</label>
+                <p className="text-xs font-bold text-slate-700">{request.travel.reason}</p>
+              </div>
+            </div>
+          </section>
 
-          {/* SEÇÃO: ITINERÁRIO DETALHADO (VERSÃO V3) */}
-          <section className="space-y-4">
-             <div className="flex items-center gap-2">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Itinerário Detalhado</h4>
-                <div className="h-px flex-1 bg-slate-100" />
+          {/* 3. TÓPICO: ITINERÁRIO DE IDA */}
+          <section className="space-y-6">
+             <div className="flex items-center gap-3">
+                <div className="w-1.5 h-6 bg-emerald-500 rounded-full" />
+                <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest italic">Itinerário de Ida</h4>
              </div>
              
-             <div className="space-y-4">
-                {normalizeSegmentsFromTravel(request.travel).map((seg, idx) => (
-                  <div key={seg.id} className="relative pl-8 pb-4 border-l-2 border-dashed border-slate-100 last:border-0 last:pb-0">
-                    <div className="absolute -left-[11px] top-0 w-5 h-5 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center text-[8px] font-black text-slate-400">
-                       {idx + 1}
-                    </div>
-                    
-                    <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-100/50">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          {seg.transportMode === 'aereo' ? <Plane className="w-3 h-3 text-blue-500" /> : <Bus className="w-3 h-3 text-emerald-500" />}
-                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{seg.transportMode}</span>
+             <div className="space-y-4 pl-4">
+                {(request.travel.segments || (request as any).segments || [])
+                  .filter((s: any) => s.direction === 'ida')
+                  .map((seg: any, idx: number) => (
+                    <div key={seg.id} className="bg-slate-50/50 rounded-2xl p-5 border border-slate-100 flex items-center justify-between gap-6 hover:border-emerald-100 transition-colors shadow-sm">
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="w-8 h-8 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400">
+                          {idx + 1}
                         </div>
-                        {seg.baggageRequired && (
-                          <div className="flex items-center gap-1 text-slate-400">
-                             <Luggage className="w-3 h-3" />
-                             <span className="text-[9px] font-bold">C/ Bagagem</span>
+                        <div className="flex-1">
+                          <p className="text-xs font-bold text-slate-800">{seg.origin} → {seg.destination}</p>
+                          <div className="flex items-center gap-3 mt-1">
+                             <div className="flex items-center gap-1">
+                               {seg.transportMode === 'aereo' ? <Plane className="w-3 h-3 text-blue-500" /> : <Bus className="w-3 h-3 text-emerald-500" />}
+                               <span className="text-[9px] font-bold text-slate-400 uppercase">{seg.transportMode}</span>
+                             </div>
+                             <span className="text-[9px] font-bold text-slate-300">|</span>
+                             <p className="text-[9px] text-slate-400 font-bold uppercase">{seg.originTerminal}</p>
                           </div>
-                        )}
+                        </div>
                       </div>
-
-                      <div className="flex items-center gap-4">
-                         <div className="flex-1">
-                            <p className="text-xs font-bold text-slate-700">{seg.origin}</p>
-                            <p className="text-[9px] text-slate-400 font-bold uppercase truncate">{seg.originTerminal || 'Terminal não ident.'}</p>
-                         </div>
-                         <div className="flex items-center gap-1 text-slate-300">
-                            <div className="w-2 h-px bg-slate-200" />
-                            <MapPin className="w-3 h-3" />
-                            <div className="w-2 h-px bg-slate-200" />
-                         </div>
-                         <div className="flex-1 text-right">
-                            <p className="text-xs font-bold text-slate-700">{seg.destination}</p>
-                            <p className="text-[9px] text-slate-400 font-bold uppercase truncate">{seg.destinationTerminal || 'Terminal não ident.'}</p>
-                         </div>
-                      </div>
-
-                      <div className="mt-3 flex items-center gap-6">
-                         <div className="px-2.5 py-1.5 bg-blue-50/50 rounded-xl border border-blue-100 flex items-center gap-2">
-                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Partida:</span>
-                            <span className="text-[10px] font-bold text-slate-600">{format(new Date(seg.departureDateTime), 'dd/MM/yyyy HH:mm')}</span>
-                         </div>
-                         
-                         {/* Cotação Obra por Trecho */}
-                         <div className="flex items-center gap-4">
-                            <div className="flex flex-col">
-                               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Cia Cotada</span>
-                               <span className="text-[10px] font-bold text-slate-700 italic">{seg.airlineQuote || 'N/A'}</span>
-                            </div>
-                            <div className="w-px h-4 bg-slate-100" />
-                            <div className="flex flex-col">
-                               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Preço Cotado</span>
-                               <span className="text-[10px] font-black text-blue-600 font-mono italic">
-                                 {seg.priceQuote ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(seg.priceQuote) : 'R$ 0,00'}
-                               </span>
-                            </div>
-                         </div>
+                      
+                      <div className="flex items-center gap-10">
+                        <div className="text-right">
+                          <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Partida</label>
+                          <p className="text-[10px] font-black text-slate-700">{format(new Date(seg.departureDateTime), 'dd/MM/yyyy HH:mm')}</p>
+                        </div>
+                        <div className="text-right w-24">
+                          <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Cia / Valor</label>
+                          <p className="text-[10px] font-bold text-slate-600 truncate">{seg.airlineQuote}</p>
+                          <p className="text-[10px] font-black text-blue-600">{seg.priceQuote ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(seg.priceQuote) : '—'}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
              </div>
           </section>
 
-          {/* Seção de Status / Política */}
-          <section className="space-y-4">
-             <div className="flex items-center gap-2">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Validação de Política</h4>
-                <div className="h-px flex-1 bg-slate-100" />
+          {/* 4. TÓPICO: ITINERÁRIO DE VOLTA */}
+          <section className="space-y-6">
+             <div className="flex items-center gap-3">
+                <div className="w-1.5 h-6 bg-orange-500 rounded-full" />
+                <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest italic">Itinerário de Volta</h4>
              </div>
-             {request.validation.policyDecision && (
-               <PolicyDecisionPanel decision={request.validation.policyDecision} />
-             )}
+             
+             <div className="space-y-4 pl-4">
+                {(request.travel.segments || (request as any).segments || [])
+                  .filter((s: any) => s.direction === 'volta')
+                  .length > 0 ? (
+                    (request.travel.segments || (request as any).segments || [])
+                    .filter((s: any) => s.direction === 'volta')
+                    .map((seg: any, idx: number) => (
+                      <div key={seg.id} className="bg-slate-50/50 rounded-2xl p-5 border border-slate-100 flex items-center justify-between gap-6 hover:border-orange-100 transition-colors shadow-sm">
+                        <div className="flex items-center gap-4 flex-1">
+                          <div className="w-8 h-8 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400">
+                            {idx + 1}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-xs font-bold text-slate-800">{seg.origin} → {seg.destination}</p>
+                            <div className="flex items-center gap-3 mt-1">
+                               <div className="flex items-center gap-1">
+                                 {seg.transportMode === 'aereo' ? <Plane className="w-3 h-3 text-blue-500" /> : <Bus className="w-3 h-3 text-emerald-500" />}
+                                 <span className="text-[9px] font-bold text-slate-400 uppercase">{seg.transportMode}</span>
+                               </div>
+                               <span className="text-[9px] font-bold text-slate-300">|</span>
+                               <p className="text-[9px] text-slate-400 font-bold uppercase">{seg.originTerminal}</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-10">
+                          <div className="text-right">
+                            <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Partida</label>
+                            <p className="text-[10px] font-black text-slate-700">{format(new Date(seg.departureDateTime), 'dd/MM/yyyy HH:mm')}</p>
+                          </div>
+                          <div className="text-right w-24">
+                            <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Cia / Valor</label>
+                            <p className="text-[10px] font-bold text-slate-600 truncate">{seg.airlineQuote}</p>
+                            <p className="text-[10px] font-black text-blue-600">{seg.priceQuote ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(seg.priceQuote) : '—'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-8 border-2 border-dashed border-slate-100 rounded-[32px] flex flex-col items-center justify-center gap-2 opacity-50">
+                       <MapPin className="w-6 h-6 text-slate-300" />
+                       <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest italic">Nenhum trecho de volta solicitado</p>
+                    </div>
+                  )}
+             </div>
           </section>
+
+          {/* 5. TÓPICO: POLÍTICAS APLICADAS (Escondido para Comprador) */}
+          {currentUserRole !== UserRole.COMPRADOR && (
+            <section className="space-y-6">
+               <div className="flex items-center gap-3">
+                  <div className="w-1.5 h-6 bg-slate-400 rounded-full" />
+                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest italic">Políticas Aplicadas</h4>
+               </div>
+               <div className="space-y-4 pl-4">
+                  {/* Suporte a múltiplas decisões (ex: Data e Geo) */}
+                  {request.validation.policyDecisions && request.validation.policyDecisions.length > 0 ? (
+                    request.validation.policyDecisions.map((decision, idx) => (
+                      <PolicyDecisionPanel 
+                        key={idx} 
+                        decision={decision} 
+                      />
+                    ))
+                  ) : request.validation.policyDecision ? (
+                    <PolicyDecisionPanel decision={request.validation.policyDecision} />
+                  ) : (
+                    <p className="text-[10px] font-bold text-slate-400 uppercase italic">Nenhuma política aplicada</p>
+                  )}
+               </div>
+            </section>
+          )}
 
           {/* Formulário de Compra (Se aplicável) */}
           {showPurchaseForm && (
             <PurchaseForm 
+              request={request}
+              segments={request.travel.segments || []}
               onSubmit={handlePurchase}
               onCancel={() => setShowPurchaseForm(false)}
               isLoading={isUpdating}
             />
           )}
 
-          {/* Trilha de Auditoria */}
+          {/* 7. TÓPICO: PARECERES E DEVOLUTIVAS */}
+          {request.audit.history.some(h => h.comment && h.comment.length > 5 && h.status !== RequestStatus.ENVIADA) && (
+            <section className="space-y-6">
+               <div className="flex items-center gap-3">
+                  <div className="w-1.5 h-6 bg-amber-500 rounded-full" />
+                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest italic">Pareceres e Devolutivas</h4>
+               </div>
+               <div className="pl-4 space-y-4">
+                  {request.audit.history
+                    .filter(h => h.comment && h.comment.length > 5 && h.status !== RequestStatus.ENVIADA)
+                    .map((entry, idx) => (
+                      <div key={idx} className={cn(
+                        "p-5 rounded-[28px] border relative",
+                        entry.updatedByRole === UserRole.CAPITAL_HUMANO ? "bg-blue-50/40 border-blue-100" : "bg-slate-50/50 border-slate-100"
+                      )}>
+                        <div className="flex items-center justify-between mb-2">
+                           <span className={cn(
+                             "text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest",
+                             entry.updatedByRole === UserRole.CAPITAL_HUMANO ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-600"
+                           )}>
+                             {entry.updatedByRole === UserRole.CAPITAL_HUMANO ? 'Capital Humano' : 
+                              entry.updatedByRole === UserRole.COMPRADOR ? 'Compras' : entry.updatedByRole}
+                           </span>
+                           <span className="text-[9px] font-bold text-slate-400 italic">
+                             {format(new Date(entry.updatedAt), 'dd MMM HH:mm')}
+                           </span>
+                        </div>
+                        <p className="text-sm text-slate-700 font-semibold leading-relaxed whitespace-pre-wrap">
+                          {entry.comment}
+                        </p>
+                      </div>
+                    ))
+                  }
+               </div>
+            </section>
+          )}
+
+          {/* 8. Trilha de Auditoria */}
           <section className="space-y-6 pt-2">
              <div className="flex items-center gap-2">
                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Timeline do Workflow</h4>
@@ -251,20 +368,74 @@ export function TravelRequestDetailsModal({
                 {canBuy && (
                   <div className="flex items-center gap-3">
                     <button 
+                      onClick={() => setShowEmailBox(true)}
+                      className="px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-50 transition-all border border-indigo-100 flex items-center gap-2"
+                    >
+                      <Mail className="w-4 h-4" />
+                      E-mail Aprovação
+                    </button>
+                    <button 
+                      onClick={() => setShowPurchaseForm(true)}
+                      disabled={isUpdating}
+                      className="bg-indigo-600 text-white px-10 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-indigo-700 shadow-xl shadow-indigo-100 flex items-center gap-2 group transition-all"
+                    >
+                      {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4 group-hover:scale-110 transition-transform" />}
+                      Processar Emissão
+                    </button>
+                    <button 
                       onClick={() => handleAction(RequestStatus.CANCELADA)}
                       disabled={isUpdating || !comment.trim()}
                       title={!comment.trim() ? 'Preencha a justificativa antes de cancelar' : ''}
                       className="px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 transition-all border border-red-100 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
                     >
-                      <ShieldAlert className="w-4 h-4" />
-                      Cancelar Solicitação
+                      <XCircle className="w-4 h-4" />
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+
+                {canApprovePurchase && (
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => handleAction(RequestStatus.COMPRA_RECUSADA)}
+                      disabled={isUpdating || !comment.trim()}
+                      title={!comment.trim() ? 'Justificativa obrigatória para recusar' : ''}
+                      className="px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 transition-all border border-red-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Recusar Variação
                     </button>
                     <button 
-                      onClick={() => setShowPurchaseForm(true)}
-                      className="bg-blue-600 text-white px-10 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-100 flex items-center gap-2 group transition-all"
+                      onClick={() => handleAction(RequestStatus.EM_PROCESSO_DE_COMPRA)}
+                      disabled={isUpdating}
+                      className="bg-indigo-600 text-white px-10 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-indigo-700 shadow-xl flex items-center gap-2 group transition-all disabled:opacity-40"
                     >
-                       <ShoppingCart className="w-4 h-4 group-hover:rotate-12 transition-transform" />
-                       Processar Emissão
+                      <CheckCircle className="w-4 h-4" />
+                      Aprovar Variação de Compra
+                    </button>
+                  </div>
+                )}
+
+                {canFinalizeEmission && (
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => setShowPurchaseForm(true)}
+                      className="bg-indigo-600 text-white px-10 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-indigo-700 shadow-xl flex items-center gap-2 group transition-all"
+                    >
+                      <ShoppingCart className="w-4 h-4" />
+                      Finalizar Emissão
+                    </button>
+                  </div>
+                )}
+
+                {isRejectedPurchase && (
+                  <div className="flex items-center gap-4 bg-red-50 px-6 py-3 rounded-2xl border border-red-100">
+                    <ShieldAlert className="w-5 h-5 text-red-600" />
+                    <span className="text-xs font-bold text-red-800 italic uppercase">Variação de compra recusada pela gestão.</span>
+                    <button 
+                      onClick={() => handleAction(RequestStatus.CANCELADA)}
+                      className="text-[10px] font-black uppercase text-red-600 underline hover:no-underline ml-4"
+                    >
+                      Cancelar Solicitação
                     </button>
                   </div>
                 )}
@@ -282,6 +453,14 @@ export function TravelRequestDetailsModal({
           </div>
         </div>
       </div>
+
+      {/* Box de E-mail de Aprovação */}
+      {showEmailBox && (
+        <ApprovalEmailBox 
+          request={request}
+          onClose={() => setShowEmailBox(false)}
+        />
+      )}
     </div>
   );
 }

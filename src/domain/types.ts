@@ -107,6 +107,8 @@ export interface TravelInfo {
   reason: TravelReason;
   /** Lista de trechos ordenada — Fonte de verdade v3 */
   segments?: TravelSegment[];
+  /** Snapshot dos trechos originais no momento da compra (para análise Orçado vs Realizado) */
+  requestedSegments?: TravelSegment[];
   
   // Campos derivados para compatibilidade legada
   origin: string;
@@ -139,7 +141,8 @@ export interface ValidationInfo {
   validationSummary?: string;
   blockingReasons?: string[];
   warnings?: string[];
-  policyDecision?: PolicyDecision; // Nova estrutura de decisão detalhada
+  policyDecision?: PolicyDecision; // Fallback legada
+  policyDecisions?: PolicyDecision[]; // Nova estrutura multidecisão
 }
 
 /** Dados registrados pelo comprador na emissão da passagem */
@@ -155,6 +158,7 @@ export interface PurchaseInfo {
 export interface HistoryEntry {
   status: RequestStatus;
   updatedBy: string;
+  updatedByRole: UserRole;
   updatedAt: string;  // ISO 8601
   comment?: string;
 }

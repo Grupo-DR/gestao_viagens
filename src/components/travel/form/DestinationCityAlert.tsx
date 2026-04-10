@@ -129,32 +129,17 @@ export function DestinationCityAlert({
               <MapPin className="w-3.5 h-3.5" /> Política de Destino
             </h4>
 
-            {!isApplicable ? (
-              <p className="text-sm font-bold text-slate-700 leading-tight italic">
-                Validação de destino não aplicável para o motivo da viagem selecionado.
-              </p>
-            ) : isPending ? (
-              <p className="text-sm font-bold text-slate-700 leading-tight italic">
-                Aguardando integração do colaborador e preenchimento do destino final para validar a política.
-              </p>
-            ) : isMatch ? (
-              <p className="text-sm font-bold text-slate-700 leading-tight italic">
-                Destino confirmado. A cidade final da viagem coincide com o cadastro do colaborador.
-              </p>
-            ) : (
-              <p className="text-sm font-bold text-amber-700 leading-tight italic">
-                Destino divergente do cadastro. A viagem precisa de atenção do Capital Humano.
-              </p>
-            )}
+            <p
+              className={cn(
+                'text-sm font-bold leading-tight italic',
+                isMatch ? 'text-emerald-700' : 'text-amber-700'
+              )}
+            >
+              {geoDecision?.summary || 'Aguardando preenchimento do destino final.'}
+            </p>
 
             <p className="text-[10px] font-medium text-slate-400 leading-relaxed max-w-lg">
-              {!isApplicable
-                ? 'A conferência automática de cidade só é aplicada para motivos com exigência de validação geográfica.'
-                : isPending
-                  ? 'Assim que o destino final do itinerário estiver preenchido, a comparação com o RM será recalculada automaticamente.'
-                  : isMatch
-                    ? 'Confirmação automática via cruzamento com a base de colaboradores do RM TOTVS.'
-                    : 'O destino informado não corresponde à cidade de residência cadastrada no RM. A solicitação pode seguir, mas tende à revisão manual.'}
+              {/* Removido texto informativo conforme solicitação do usuário */}
             </p>
           </div>
         </div>

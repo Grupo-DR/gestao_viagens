@@ -11,7 +11,7 @@ import { db, handleFirestoreError, OperationType } from '../../infrastructure/fi
 import { RequestStatus, PurchaseStatus, ValidationStatus, TravelReason } from '../../domain/enums';
 import { PolicyResult } from '../../domain/policy/enums';
 import { mapLegacyToTravelRequest } from '../../domain/travelRequest.rules';
-import type { TravelRequest, LegacyTravelRequest } from '../../domain/types';
+import type { TravelRequest, LegacyTravelRequest, UserProfile } from '../../domain/types';
 import { UserRole } from '../../domain/enums';
 
 // ──────────────────────────────────────────────
@@ -63,7 +63,7 @@ const MOCK_REQUESTS: TravelRequest[] = [
       updatedAt: new Date().toISOString(),
       createdBy: 'antonio@empresa.com',
       history: [
-        { status: RequestStatus.EM_VALIDACAO_CH, updatedBy: 'sistema', updatedAt: new Date().toISOString(), comment: 'Iniciado automaticamente.' }
+        { status: RequestStatus.EM_VALIDACAO_CH, updatedBy: 'sistema', updatedByRole: UserRole.ADMINISTRATIVO, updatedAt: new Date().toISOString(), comment: 'Iniciado automaticamente.' }
       ]
     }
   },
@@ -116,6 +116,8 @@ interface UseTravelRequestsOptions {
   view: TravelListView;
   /** uid do solicitante — obrigatório para view='requester' */
   userId?: string;
+  /** Perfil do usuário para segregação de dados */
+  user?: UserProfile | null;
 }
 
 interface UseTravelRequestsResult {
@@ -142,10 +144,16 @@ function buildQuery(view: TravelListView, userId?: string): Query<DocumentData> 
       return query(col, where('status', '==', RequestStatus.EM_VALIDACAO_CH), orderBy('audit.createdAt', 'desc'));
 
     case 'buyer':
-      // Fila de compras: prontas para emissão
+      // Fila de compras: prontas para emissão + processos em andamento
       return query(
         col,
-        where('status', 'in', [RequestStatus.DISPONIVEL_PARA_COMPRA, RequestStatus.APROVADA]),
+        where('status', 'in', [
+          RequestStatus.DISPONIVEL_PARA_COMPRA, 
+          RequestStatus.APROVADA, 
+          RequestStatus.AGUARDANDO_APROVACAO_COMPRA,
+          RequestStatus.EM_PROCESSO_DE_COMPRA,
+          RequestStatus.COMPRA_RECUSADA
+        ]),
         orderBy('audit.createdAt', 'desc')
       );
 
@@ -173,7 +181,7 @@ function normalizeDocument(raw: DocumentData & { id: string }): TravelRequest {
 // ──────────────────────────────────────────────
 
 export function useTravelRequests(options: UseTravelRequestsOptions): UseTravelRequestsResult {
-  const { view, userId } = options;
+  const { view, userId, user } = options;
   const [requests, setRequests] = useState<TravelRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -198,7 +206,15 @@ export function useTravelRequests(options: UseTravelRequestsOptions): UseTravelR
         const normalized = snapshot.docs.map((docSnap) =>
           normalizeDocument({ id: docSnap.id, ...docSnap.data() })
         );
-        setRequests(normalized);
+
+        // Aplicar Filtro de SegregaÃ§Ã£o (MASTER e CH veem tudo)
+        let filtered = normalized;
+        if (user && user.role !== UserRole.MASTER && user.role !== UserRole.CAPITAL_HUMANO) {
+           const allowedCCs = user.allowedCostCenters || [];
+           filtered = normalized.filter(r => allowedCCs.includes(r.travel.costCenter));
+        }
+
+        setRequests(filtered);
         setLoading(false);
         setIsDemoMode(false);
       },
@@ -229,7 +245,7 @@ export function useTravelRequests(options: UseTravelRequestsOptions): UseTravelR
     );
 
     return () => unsubscribe();
-  }, [view, userId]);
+  }, [view, userId, user]);
 
   return { requests, loading, error, isDemoMode };
 }

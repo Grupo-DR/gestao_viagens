@@ -15,11 +15,13 @@ import { EmployeeMapper } from '../mappers/EmployeeMapper';
 import { getErrorMessage } from '../../lib/errorUtils';
 import { useToast } from './useToast';
 import { ExternalVacationDTO } from '../dtos/ExternalEmployeeDTO';
+import { UserProfile } from '../../domain/types';
+import { UserRole } from '../../domain/enums';
 
 export interface CCListItem { code: string; label: string }
 export interface EmployeeListItem { chapa: string; name: string }
 
-export function useEmployeeIntegration() {
+export function useEmployeeIntegration(user: UserProfile | null) {
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,14 +46,22 @@ export function useEmployeeIntegration() {
       setMasterList(list);
       
       const ccList = EmployeeMapper.mapToCostCenterList(list);
-      setCostCenters(ccList);
+      
+      // Aplicar Filtro de SegregaÃ§Ã£o (MASTER e CH veem tudo)
+      let filteredCCs = ccList;
+      if (user && user.role !== UserRole.MASTER && user.role !== UserRole.CAPITAL_HUMANO) {
+        const allowed = user.allowedCostCenters || [];
+        filteredCCs = ccList.filter(cc => allowed.includes(cc.label));
+      }
+
+      setCostCenters(filteredCCs);
     } catch (err: any) {
       console.warn('[Integration] Erro ao carregar base mestre RM.');
       setError('Falha ao conectar com o RM TOTVS.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   /** 
    * Filtragem de colaboradores por Centro de Custo (Local) 

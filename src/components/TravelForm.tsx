@@ -37,7 +37,7 @@ export function TravelForm({ onClose, editingRequest }: TravelFormProps) {
     fetchByCostCenter,
     fetchMasterData,
     lookupEmployee,
-  } = useEmployeeIntegration();
+  } = useEmployeeIntegration(currentUser);
 
   const { evaluation } = usePolicyEvaluation(formData, integrationResult);
 
@@ -62,10 +62,6 @@ export function TravelForm({ onClose, editingRequest }: TravelFormProps) {
       setField('functionName', integrationResult.masterData.functionName || '');
     }
   }, [integrationResult?.masterData, setField]);
-
-  const hasBlockingViolation = 
-    evaluation?.date.result === PolicyResult.REJECTED || 
-    evaluation?.geo.result === PolicyResult.REJECTED;
 
   const homeCity =
     integrationResult?.masterData?.homeCity ||
@@ -132,16 +128,13 @@ export function TravelForm({ onClose, editingRequest }: TravelFormProps) {
 
           <div className="flex items-center gap-4">
             <button
-              onClick={() => saveDraft(evaluation?.date || undefined)}
-              disabled={loading}
-              className="px-8 py-4 rounded-2xl text-xs font-black text-slate-500 hover:bg-slate-50 transition-all flex items-center gap-3 tracking-widest"
-            >
-              <Save className="w-5 h-5" />
-              SALVAR RASCUNHO
-            </button>
-            <button
-              onClick={() => submit(evaluation?.date || undefined)}
-              disabled={loading || integrationLoading || !formData.chapa || hasBlockingViolation}
+              onClick={() => {
+                const decisions = [];
+                if (evaluation?.date) decisions.push(evaluation.date);
+                if (evaluation?.geo) decisions.push(evaluation.geo);
+                submit(decisions);
+              }}
+              disabled={loading || integrationLoading || !formData.chapa}
               className="px-10 py-4 bg-slate-900 text-white rounded-[22px] text-xs font-black hover:bg-slate-800 transition-all shadow-2xl shadow-slate-200 flex items-center gap-3 tracking-widest disabled:opacity-30"
             >
               <Send className="w-5 h-5" />

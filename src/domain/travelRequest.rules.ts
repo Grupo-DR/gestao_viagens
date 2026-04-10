@@ -73,7 +73,19 @@ export function getAvailableTransitions(
       roles: [UserRole.MASTER, UserRole.CAPITAL_HUMANO, UserRole.GESTOR],
     },
     [RequestStatus.DISPONIVEL_PARA_COMPRA]: {
-      allowed: [RequestStatus.EMITIDA, RequestStatus.CANCELADA, RequestStatus.PENDENTE_CORRECAO],
+      allowed: [RequestStatus.EMITIDA, RequestStatus.CANCELADA, RequestStatus.PENDENTE_CORRECAO, RequestStatus.AGUARDANDO_APROVACAO_COMPRA, RequestStatus.EM_PROCESSO_DE_COMPRA],
+      roles: [UserRole.MASTER, UserRole.COMPRADOR, UserRole.GESTOR],
+    },
+    [RequestStatus.AGUARDANDO_APROVACAO_COMPRA]: {
+      allowed: [RequestStatus.EM_PROCESSO_DE_COMPRA, RequestStatus.COMPRA_RECUSADA, RequestStatus.CANCELADA],
+      roles: [UserRole.MASTER, UserRole.GESTOR],
+    },
+    [RequestStatus.EM_PROCESSO_DE_COMPRA]: {
+      allowed: [RequestStatus.EMITIDA, RequestStatus.CANCELADA],
+      roles: [UserRole.MASTER, UserRole.COMPRADOR, UserRole.GESTOR],
+    },
+    [RequestStatus.COMPRA_RECUSADA]: {
+      allowed: [RequestStatus.CANCELADA],
       roles: [UserRole.MASTER, UserRole.COMPRADOR, UserRole.GESTOR],
     },
   };
@@ -146,6 +158,9 @@ export function getStatusColor(status: RequestStatus | string): string {
     case RequestStatus.PENDENTE_CORRECAO: return 'bg-orange-100 text-orange-600';
     case RequestStatus.APROVADA:
     case RequestStatus.DISPONIVEL_PARA_COMPRA: return 'bg-emerald-100 text-emerald-600';
+    case RequestStatus.AGUARDANDO_APROVACAO_COMPRA: return 'bg-purple-100 text-purple-600';
+    case RequestStatus.EM_PROCESSO_DE_COMPRA: return 'bg-blue-100 text-blue-600';
+    case RequestStatus.COMPRA_RECUSADA:
     case RequestStatus.REPROVADA:
     case RequestStatus.CANCELADA:        return 'bg-red-100 text-red-600';
     case RequestStatus.EMITIDA:
@@ -164,6 +179,9 @@ export function getStatusLabel(status: RequestStatus): string {
     case RequestStatus.EM_VALIDACAO_CH:        return 'Em Validação CH';
     case RequestStatus.PENDENTE_CORRECAO:      return 'Pendente de Correção';
     case RequestStatus.DISPONIVEL_PARA_COMPRA: return 'Disponível para Compra';
+    case RequestStatus.AGUARDANDO_APROVACAO_COMPRA: return 'Aguardando Aprovação de Variação';
+    case RequestStatus.EM_PROCESSO_DE_COMPRA:     return 'Em Processo de Compra';
+    case RequestStatus.COMPRA_RECUSADA:           return 'Compra Recusada';
     case RequestStatus.REPROVADA:              return 'Reprovada';
     case RequestStatus.CANCELADA:              return 'Cancelada';
     case RequestStatus.EMITIDA:                return 'Bilhete Emitido';
@@ -181,6 +199,9 @@ export function getActionLabel(targetStatus: RequestStatus): string {
     case RequestStatus.DISPONIVEL_PARA_COMPRA: return 'Aprovar / Liberar';
     case RequestStatus.REPROVADA:              return 'Reprovar';
     case RequestStatus.PENDENTE_CORRECAO:      return 'Solicitar Correção';
+    case RequestStatus.AGUARDANDO_APROVACAO_COMPRA: return 'Solicitar Aprovação';
+    case RequestStatus.EM_PROCESSO_DE_COMPRA:     return 'Liberar para Compra';
+    case RequestStatus.COMPRA_RECUSADA:           return 'Recusar Variação';
     case RequestStatus.EMITIDA:                return 'Confirmar Emissão';
     case RequestStatus.CANCELADA:              return 'Cancelar';
     default:                                   return 'Avançar';
@@ -235,6 +256,7 @@ export function mapLegacyToTravelRequest(legacy: LegacyTravelRequest): TravelReq
       ? h.status
       : RequestStatus.RASCUNHO) as RequestStatus,
     updatedBy: h.updatedBy ?? 'sistema',
+    updatedByRole: UserRole.ADMINISTRATIVO, // Role padrão para legados
     updatedAt: h.updatedAt ?? legacy.createdAt,
     comment: h.comment,
   }));
@@ -296,12 +318,16 @@ export function getPassengerDisplayName(request: TravelRequest): string {
 export function formatRoute(request: TravelRequest): string {
   const { segments, origin, destination } = request.travel;
 
-  // Versão Multitrecho (v3)
+  // Versão Multitrecho (v3) - Extrai a sequência lógica de cidades
   if (segments && segments.length > 0) {
     const points: string[] = [];
     segments.forEach((seg, index) => {
-      if (index === 0) points.push(seg.origin);
-      points.push(seg.destination);
+      // Tenta remover o estado (Ex: "São Paulo - SP" -> "São Paulo") para encurtar a rota na ficha
+      const cleanOrigin = seg.origin.split(' - ')[0].split(' / ')[0].trim();
+      const cleanDest = seg.destination.split(' - ')[0].split(' / ')[0].trim();
+      
+      if (index === 0) points.push(cleanOrigin);
+      points.push(cleanDest);
     });
     return points.join(' → ');
   }

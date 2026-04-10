@@ -22,12 +22,13 @@ import {
   getPassengerDisplayName,
   formatRoute,
 } from '../domain/travelRequest.rules';
-import type { TravelRequest, HistoryEntry, PurchaseInfo } from '../domain/types';
+import type { TravelRequest, HistoryEntry, PurchaseInfo, TravelSegment } from '../domain/types';
 import { useIdentity } from '../application/identity/IdentityContext';
 import { useTravelRequests, TravelListView } from '../application/hooks/useTravelRequests';
 import { changeRequestStatus, deleteTravelRequest } from '../application/services/travelRequestService';
 import { cn } from '../lib/utils';
 import { UserRole } from '../domain/enums';
+import { TravelRequestDetailsModal } from './travel/TravelRequestDetailsModal';
 
 // ──────────────────────────────────────────────
 // Props
@@ -67,7 +68,8 @@ export function TravelList({ view, onEdit, onCreate }: TravelListProps) {
   // Hooks de Dados e Estado (Sempre chamados no topo)
   const { requests, loading, error, isDemoMode } = useTravelRequests({
     view,
-    userId: currentUser.uid,
+    userId: currentUser?.uid,
+    user: currentUser,
   });
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -96,7 +98,8 @@ export function TravelList({ view, onEdit, onCreate }: TravelListProps) {
       request: TravelRequest,
       newStatus: RequestStatus,
       comment: string,
-      purchaseInfo?: Partial<PurchaseInfo>
+      purchaseInfo?: Partial<PurchaseInfo>,
+      updatedSegments?: TravelSegment[]
     ) => {
       if (!comment && (newStatus === RequestStatus.PENDENTE_CORRECAO || newStatus === RequestStatus.REPROVADA)) {
         alert('Por favor, insira um comentário justificando a ação.');
@@ -112,10 +115,11 @@ export function TravelList({ view, onEdit, onCreate }: TravelListProps) {
           request.audit.history,
           currentUser,
           comment,
-          purchaseInfo
+          purchaseInfo,
+          updatedSegments,
+          request.travel.segments // Snapshot original
         );
         setSelectedRequest(null);
-        setPurchaseForm(EMPTY_PURCHASE_FORM);
       } catch (err: any) {
         alert(err.message || 'Erro ao atualizar status');
       } finally {
@@ -308,124 +312,15 @@ export function TravelList({ view, onEdit, onCreate }: TravelListProps) {
         </>
       )}
 
-      {/* Modal de Detalhes - Renderizado condicionalmente abaixo dos hooks */}
+      {/* Modal de Detalhes - Componente Modularizado */}
       {selectedRequest && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300">
-          <div className="bg-white w-full max-w-2xl rounded-[32px] shadow-2xl overflow-hidden motion-safe:animate-in motion-safe:zoom-in-95 duration-200">
-            {/* Header modal */}
-            <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
-              <div>
-                <h3 className="text-xl font-bold text-slate-900 tracking-tight">Ficha da Solicitação</h3>
-                <p className="text-[10px] text-slate-400 mt-0.5 font-mono">ID: {selectedRequest.requestId.slice(0, 12)}</p>
-              </div>
-              <button 
-                onClick={() => setSelectedRequest(null)} 
-                className="p-1.5 hover:bg-slate-200 rounded-full transition-colors text-slate-400"
-              >
-                <XCircle className="w-6 h-6" />
-              </button>
-            </div>
-
-            {/* Corpo do modal */}
-            <div className="p-8 max-h-[70vh] overflow-y-auto space-y-8 scrollbar-thin scrollbar-thumb-slate-200">
-              {/* Informações Base */}
-              <div className="grid grid-cols-2 gap-x-8 gap-y-6">
-                {[
-                  { label: 'Passageiro', value: getPassengerDisplayName(selectedRequest) },
-                  { label: 'CHAPA', value: selectedRequest.employee.chapa || '—' },
-                  { label: 'Motivo', value: selectedRequest.travel.reason },
-                  { label: 'Rota', value: formatRoute(selectedRequest) },
-                  { label: 'Centro de Custo', value: selectedRequest.travel.costCenter },
-                  { label: 'Projeto', value: selectedRequest.travel.projectCode || 'Consumo Interno' },
-                  {
-                    label: 'Partida',
-                    value: selectedRequest.travel.departureDateTime
-                      ? format(new Date(selectedRequest.travel.departureDateTime), 'dd/MM/yyyy HH:mm')
-                      : 'Não informada',
-                  },
-                  {
-                    label: 'Retorno',
-                    value: selectedRequest.travel.returnDateTime
-                      ? format(new Date(selectedRequest.travel.returnDateTime), 'dd/MM/yyyy HH:mm')
-                      : 'Só Ida',
-                  },
-                ].map((item) => (
-                  <div key={item.label}>
-                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">{item.label}</label>
-                    <p className="text-slate-800 font-semibold text-sm leading-tight">{item.value}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Análise de Política */}
-              {selectedRequest.validation.policyDecision && (
-                <div className={cn(
-                  "p-6 rounded-[24px] border border-black/5 shadow-sm transition-all duration-500",
-                  selectedRequest.validation.policyDecision.result === PolicyResult.REJECTED ? "bg-red-50/50" :
-                  selectedRequest.validation.policyDecision.result === PolicyResult.MANUAL_VALIDATION ? "bg-amber-50/50" :
-                  "bg-emerald-50/50"
-                )}>
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className={cn(
-                      "p-2.5 rounded-xl flex items-center justify-center shadow-sm",
-                      selectedRequest.validation.policyDecision.result === PolicyResult.REJECTED ? "bg-red-100 text-red-600" :
-                      selectedRequest.validation.policyDecision.result === PolicyResult.MANUAL_VALIDATION ? "bg-amber-100 text-amber-600" :
-                      "bg-emerald-100 text-emerald-600"
-                    )}>
-                      {selectedRequest.validation.policyDecision.result === PolicyResult.APPROVED ? <CheckCircle className="w-5 h-5" /> : <ShieldAlert className="w-5 h-5" />}
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-900 text-sm tracking-tight italic">Policy Engine — Decisão</h4>
-                      <p className="text-xs font-medium text-slate-600 mt-0.5 leading-relaxed">{selectedRequest.validation.policyDecision.summary}</p>
-                    </div>
-                  </div>
-
-                  {/* Detalhes Técnicos */}
-                   <div className="grid grid-cols-2 gap-3 mt-4">
-                    {Object.entries(selectedRequest.validation.policyDecision.evidence).map(([k, v]) => (
-                       <div key={k} className="bg-white/60 p-2.5 rounded-xl border border-black/5">
-                         <label className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter block mb-0.5">{k}</label>
-                         <span className="text-[11px] font-mono font-bold text-slate-700">{String(v || 'N/A')}</span>
-                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Botão de Histórico (Simples) */}
-               <div className="pt-4 border-t border-slate-100">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-4">Trilha de Auditoria</label>
-                <div className="space-y-4">
-                  {selectedRequest.audit.history.map((h, i) => (
-                    <div key={i} className="flex gap-4 items-start group">
-                      <div className="w-1 h-8 bg-slate-100 rounded-full group-last:bg-transparent -mb-4 mt-2" />
-                      <div className="flex-1">
-                         <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-800">{h.status}</span>
-                            <span className="text-[10px] text-slate-400 font-medium italic">{format(new Date(h.updatedAt), 'dd MMM HH:mm')}</span>
-                         </div>
-                         <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1">
-                           <Loader2 className="w-2.5 h-2.5 animate-spin opacity-0 group-hover:opacity-100 transition-opacity" />
-                           Atuado por: {h.updatedBy}
-                         </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Footer Modal */}
-            <div className="p-8 bg-slate-50/50 border-t border-slate-100 flex items-center justify-end gap-3 font-bold">
-               <button 
-                 onClick={() => setSelectedRequest(null)}
-                 className="px-6 py-2.5 rounded-xl text-xs text-slate-500 hover:bg-slate-200 transition-all uppercase tracking-widest"
-               >
-                 Fechar
-               </button>
-            </div>
-          </div>
-        </div>
+        <TravelRequestDetailsModal
+          request={selectedRequest}
+          currentUserRole={currentUser.role}
+          onClose={() => setSelectedRequest(null)}
+          onUpdateStatus={handleStatusUpdate}
+          isUpdating={actionLoading}
+        />
       )}
     </div>
   );

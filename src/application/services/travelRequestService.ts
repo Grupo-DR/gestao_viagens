@@ -24,6 +24,7 @@ import type {
   UserProfile,
   HistoryEntry,
   PurchaseInfo,
+  TravelSegment,
 } from '../../domain/types';
 import { PolicyDecision } from '../../domain/policy/types';
 import { suggestNextStatus } from '../use-cases/evaluateTravelPolicy';
@@ -56,6 +57,7 @@ function buildHistoryEntry(
   return {
     status,
     updatedBy: user.email,
+    updatedByRole: user.role,
     updatedAt: new Date().toISOString(),
     comment,
   };
@@ -73,12 +75,11 @@ export async function createTravelRequest(
   formData: TravelRequestFormData,
   author: UserProfile,
   asDraft: boolean,
-  policyDecision?: PolicyDecision
+  policyDecisions?: PolicyDecision[]
 ): Promise<string> {
-  // O status inicial é RASCUNHO se asDraft, caso contrário sugerido pelo motor de regras
   const status = asDraft 
     ? RequestStatus.RASCUNHO 
-    : (policyDecision ? suggestNextStatus(policyDecision) : getInitialStatus(formData.reason, false));
+    : (policyDecisions?.[0] ? suggestNextStatus(policyDecisions[0]) : getInitialStatus(formData.reason, false));
   const now = new Date().toISOString();
 
   const historyEntry = buildHistoryEntry(
@@ -99,9 +100,12 @@ export async function createTravelRequest(
       chapa: formData.chapa,
       employeeName: formData.employeeName,
       functionName: formData.functionName,
+      cpf: formData.cpf || null,
+      birthDate: formData.birthDate || null,
     },
     travel: {
       reason: formData.reason,
+      segments: Array.isArray(formData.segments) ? formData.segments : [],
       origin: formData.origin,
       destination: formData.destination,
       departureDateTime: formData.departureDateTime,
@@ -123,7 +127,8 @@ export async function createTravelRequest(
       validationStatus: needsValidation(formData.reason)
         ? ValidationStatus.PENDENTE
         : ValidationStatus.NAO_APLICAVEL,
-      policyDecision: policyDecision || null,
+      policyDecision: policyDecisions?.[0] || null, // Fallback legada
+      policyDecisions: policyDecisions || [],      // Nova estrutura
     },
     purchase: {
       purchaseStatus: PurchaseStatus.AGUARDANDO,
@@ -159,11 +164,11 @@ export async function updateTravelRequest(
   currentHistory: HistoryEntry[],
   author: UserProfile,
   asDraft: boolean,
-  policyDecision?: PolicyDecision
+  policyDecisions?: PolicyDecision[]
 ): Promise<void> {
   const status = asDraft
     ? RequestStatus.RASCUNHO
-    : (policyDecision ? suggestNextStatus(policyDecision) : getInitialStatus(formData.reason, false));
+    : (policyDecisions?.[0] ? suggestNextStatus(policyDecisions[0]) : getInitialStatus(formData.reason, false));
 
   const historyEntry = buildHistoryEntry(
     status,
@@ -178,7 +183,10 @@ export async function updateTravelRequest(
       'employee.chapa': formData.chapa,
       'employee.employeeName': formData.employeeName,
       'employee.functionName': formData.functionName,
+      'employee.cpf': formData.cpf || null,
+      'employee.birthDate': formData.birthDate || null,
       'travel.reason': formData.reason,
+      'travel.segments': Array.isArray(formData.segments) ? formData.segments : [],
       'travel.origin': formData.origin,
       'travel.destination': formData.destination,
       'travel.departureDateTime': formData.departureDateTime,
@@ -191,7 +199,8 @@ export async function updateTravelRequest(
       'leavePeriod.leaveStartDate': formData.leaveStartDate || null,
       'leavePeriod.leaveEndDate': formData.leaveEndDate || null,
       'validation.validationRequired': needsValidation(formData.reason),
-      'validation.policyDecision': policyDecision || null,
+      'validation.policyDecision': policyDecisions?.[0] || null,
+      'validation.policyDecisions': policyDecisions || [],
       'audit.updatedAt': new Date().toISOString(),
       'audit.history': [...currentHistory, historyEntry],
     });
@@ -211,7 +220,9 @@ export async function changeRequestStatus(
   currentHistory: HistoryEntry[],
   author: UserProfile,
   comment: string,
-  purchaseInfo?: Partial<PurchaseInfo>
+  purchaseInfo?: Partial<PurchaseInfo>,
+  updatedSegments?: TravelSegment[],
+  originalSegments?: TravelSegment[]
 ): Promise<void> {
   // Validação Rígida de Workflow
   if (!canTransitionStatus(currentStatus, newStatus, author.role)) {
@@ -236,6 +247,15 @@ export async function changeRequestStatus(
     updates['purchase.purchaseStatus'] = PurchaseStatus.EMITIDA;
     updates['purchase.purchasedAt'] = new Date().toISOString();
     updates['purchase.purchasedBy'] = author.email;
+  }
+
+  // Snapshot 'Orçado vs Realizado'
+  if (updatedSegments && updatedSegments.length > 0) {
+    updates['travel.segments'] = updatedSegments;
+    // Salva o original em 'requestedSegments' apenas na primeira edição (se já não houver snapshot)
+    if (originalSegments && originalSegments.length > 0) {
+      updates['travel.requestedSegments'] = originalSegments;
+    }
   }
 
   // Sincroniza status de validação interna

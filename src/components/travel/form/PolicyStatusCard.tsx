@@ -1,5 +1,4 @@
-import React from 'react';
-import { Calendar, CheckCircle2, Search, ShieldAlert } from 'lucide-react';
+import { Calendar, CheckCircle2, FileQuestion, Search, ShieldAlert } from 'lucide-react';
 import { PolicyResult } from '../../../domain/policy/enums.ts';
 import { PolicyDecision } from '../../../domain/policy/types.ts';
 import { cn } from '../../../lib/utils.ts';
@@ -25,6 +24,9 @@ export function PolicyStatusCard({
   onFieldChange,
 }: PolicyStatusCardProps) {
   if (!visible) return null;
+
+  const isRejected = decision?.result === PolicyResult.REJECTED;
+  const isManual = decision?.result === PolicyResult.MANUAL_VALIDATION;
 
   return (
     <div
@@ -63,22 +65,16 @@ export function PolicyStatusCard({
           </div>
 
           <div className="space-y-1.5 min-w-0">
-            <h4 className="font-black text-slate-900 text-xs tracking-widest italic uppercase">
-              Política de Data
+            <h4 className="font-black text-slate-900 text-xs tracking-widest italic uppercase flex items-center gap-2">
+              <FileQuestion className="w-3.5 h-3.5" /> {isRejected ? 'Política Rejeitada' : isManual ? 'Requer Validação CH' : 'Política de Datas'}
             </h4>
-            <p className="text-sm font-bold text-slate-700 leading-tight italic">
-              {decision
-                ? decision.summary
-                : showDateInputs
-                  ? 'Preencha o período de afastamento para validar a política de data.'
-                  : 'Aguardando datas do itinerário para validar a política de data.'}
-            </p>
-            <p className="text-[10px] font-medium text-slate-500 leading-relaxed max-w-lg">
-              {decision?.result === PolicyResult.APPROVED
-                ? 'O período informado está aderente às regras corporativas identificadas para a solicitação.'
-                : showDateInputs
-                  ? 'As datas abaixo alimentam a validação do RM para folga, férias e combinações híbridas.'
-                  : 'A análise é recalculada automaticamente conforme as datas do itinerário forem preenchidas.'}
+            <p
+              className={cn(
+                'text-sm font-bold leading-tight italic',
+                isRejected ? 'text-red-700' : isManual ? 'text-amber-700' : 'text-slate-700'
+              )}
+            >
+              {decision?.summary || 'Nenhuma política aplicada para este motivo.'}
             </p>
           </div>
         </div>

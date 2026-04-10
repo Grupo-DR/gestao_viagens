@@ -16,6 +16,51 @@ import { ExternalVacationDTO, ExternalTimeOffDTO } from '../../application/dtos/
 const normalize = (d?: string) => d ? d.split('T')[0].replace(/\//g, '-') : '';
 
 /**
+ * Calcula a diferença em dias entre duas datas (inclusive).
+ */
+const calculateDays = (start: string, end: string): number => {
+  if (!start || !end) return 0;
+  const s = new Date(start + 'T12:00:00');
+  const e = new Date(end + 'T12:00:00');
+  const diff = e.getTime() - s.getTime();
+  return Math.max(0, Math.round(diff / (1000 * 60 * 60 * 24)) + 1);
+};
+
+/**
+ * Conta a quantidade de dias úteis (Seg-Sex) entre duas datas.
+ */
+const countBusinessDays = (start: string, end: string): number => {
+  if (!start || !end) return 0;
+  const s = new Date(start + 'T12:00:00');
+  const e = new Date(end + 'T12:00:00');
+  let count = 0;
+  let cur = new Date(s);
+  while (cur <= e) {
+    const day = cur.getDay();
+    if (day !== 0 && day !== 6) count++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return count;
+};
+
+/**
+ * Tenta extrair o limite de dias da política da string de DESCRICAO.
+ */
+const extractTimeOffPolicy = (description: string) => {
+  if (!description) return null;
+  const d = description.toLowerCase();
+  
+  // Padrão: "X dias úteis"
+  const matchDays = d.match(/(\d+)\s*dias\s*(úteis|utes)/i);
+  if (matchDays) return { limit: parseInt(matchDays[1]), type: 'business' };
+
+  // Padrão: "fim de semana"
+  if (d.includes('fim de semana')) return { limit: 2, type: 'weekend' };
+
+  return null;
+};
+
+/**
  * Motor de regras puro para política de viagens.
  */
 export const PolicyEngine = {
@@ -25,17 +70,26 @@ export const PolicyEngine = {
    */
   evaluateTimeOff(
     leaveStartDate: string, 
+    leaveEndDate: string,
     timeOff: ExternalTimeOffDTO | null
   ): PolicyDecision<TimeOffPolicyEvidence> {
     const violations: PolicyRule[] = [];
     const warnings: PolicyRule[] = [];
     
     const prevista = normalize(timeOff?.DATA_PREVISTA);
+    const policy = extractTimeOffPolicy(timeOff?.DESCRICAO || '');
+    
+    // Para folga, usamos a contagem de dias conforme o tipo da política
+    const diasUteisSolicitados = countBusinessDays(leaveStartDate, leaveEndDate);
+    const diasCorridosSolicitados = calculateDays(leaveStartDate, leaveEndDate);
 
     const evidence: TimeOffPolicyEvidence = { 
       leaveStartDate, 
-      dataPrevista: prevista || undefined,
-      ultimaFolga: normalize(timeOff?.ULTIMA_FOLGA) || undefined
+      dataPrevista: prevista || null,
+      ultimaFolga: normalize(timeOff?.ULTIMA_FOLGA) || null,
+      diasUteisSolicitados,
+      regraExtraida: timeOff?.DESCRICAO || null,
+      limiteDetetado: policy?.limit || null
     };
 
     if (!prevista) {
@@ -49,8 +103,20 @@ export const PolicyEngine = {
       };
     }
 
+    // 1. Validação de Carência (90 dias ou conforme cronograma)
     if (leaveStartDate < prevista) {
       violations.push(POLICY_RULES.FOL_001);
+    }
+
+    // 2. Validação de Limite de Dias (Dinâmico)
+    if (policy) {
+      const isViolation = policy.type === 'business' 
+        ? diasUteisSolicitados > policy.limit 
+        : diasCorridosSolicitados > policy.limit;
+
+      if (isViolation) {
+        violations.push(POLICY_RULES.FOL_003);
+      }
     }
 
     const result = violations.length > 0 ? PolicyResult.REJECTED : PolicyResult.APPROVED;
@@ -62,7 +128,7 @@ export const PolicyEngine = {
       evidence,
       summary: result === PolicyResult.APPROVED 
         ? 'Solicitação em conformidade com o cronograma de folgas.' 
-        : 'Inconformidade na data de folga solicitada.',
+        : 'Inconformidade na solicitação de folga. Verifique datas ou limites.',
     };
   },
 
@@ -82,16 +148,20 @@ export const PolicyEngine = {
     const prazoGozo = normalize(vacation?.PRAZO);
     const progrInicio = normalize(vacation?.PROGR_INICIO);
     const progrFim = normalize(vacation?.PROGR_FIM);
+    const progrDias = vacation?.PROGR_DIAS || 0;
+
+    const diasSolicitados = calculateDays(leaveStartDate, leaveEndDate);
 
     const evidence: VacationPolicyEvidence = { 
       leaveStartDate, 
       leaveEndDate, 
-      inicioAquisitivo: aquaInicio || undefined, 
-      fimAquisitivo: aquaFim || undefined,
+      inicioAquisitivo: aquaInicio || null, 
+      fimAquisitivo: aquaFim || null,
       saldoDias: vacation?.SALDO || 0,
-      prazoLivre: prazoGozo || undefined,
-      abonoProgramado: vacation?.PROGR_ABONO === 'S',
-      diasProgramados: vacation?.PROGR_DIAS
+      prazoLivre: prazoGozo || null,
+      abonoProgramado: vacation?.PROGR_ABONO === 'S' || (vacation as any)?.PROGR_ABONO > 0,
+      diasProgramados: progrDias || null,
+      diasSolicitados
     };
 
     if (!aquaInicio || !aquaFim) {
@@ -105,27 +175,42 @@ export const PolicyEngine = {
       };
     }
 
-    // Regra 1: Janela Programada RM
-    if (progrInicio && (leaveStartDate < progrInicio || leaveEndDate > (progrFim || leaveEndDate))) {
-      violations.push(POLICY_RULES.FER_001);
+    // 1. Validação de Programação Oficial
+    if (progrInicio) {
+      // Regra: Janela de Datas
+      if (leaveStartDate < progrInicio || leaveEndDate > (progrFim || leaveEndDate)) {
+        violations.push(POLICY_RULES.FER_001);
+      }
+      // Regra: Correspondência de Dias
+      if (progrDias > 0 && diasSolicitados !== progrDias) {
+        violations.push(POLICY_RULES.FER_007);
+      }
+    } else {
+      // Regra: Ausência de Programação (Apenas Alerta)
+      warnings.push(POLICY_RULES.FER_003);
+      
+      // Regra: Teto pelo Saldo
+      if (diasSolicitados > (vacation?.SALDO || 0)) {
+        violations.push(POLICY_RULES.FER_008);
+      }
     }
 
-    // Regra 2: Período Aquisitivo (Não permite gozo antes do fim do período de aquisição)
+    // 2. Período Aquisitivo
     if (aquaFim && leaveStartDate < aquaFim) {
        violations.push(POLICY_RULES.FER_002);
     }
 
-    // Regra 6: Saldo insuficiente
+    // 3. Saldo Crítico (Geral)
     if (evidence.saldoDias <= 0) {
        violations.push(POLICY_RULES.FER_006);
     }
 
-    // Regra 3: Prazo Limite RM
+    // 4. Prazo Limite RM
     if (prazoGozo && leaveStartDate > prazoGozo) {
       violations.push(POLICY_RULES.FER_005);
     }
 
-    // Regra 4: Abono Pecuniário (Alerta)
+    // 5. Abono Pecuniário (Alerta Informativo)
     if (evidence.abonoProgramado) {
        warnings.push(POLICY_RULES.FER_004);
     }
@@ -142,7 +227,7 @@ export const PolicyEngine = {
         ? 'Férias em conformidade com o saldo e janelas programadas.'
         : result === PolicyResult.REJECTED
         ? 'Inconformidade crítica: Verifique janelas, prazos ou saldo.'
-        : 'Requer validação CH: Verifique abono ou divergências parciais.',
+        : 'Requer validação CH: Verifique programação ou divergências.',
     };
   },
 
@@ -155,7 +240,7 @@ export const PolicyEngine = {
     timeOff: ExternalTimeOffDTO | null,
     vacation: ExternalVacationDTO | null
   ): PolicyDecision<CombinedPolicyEvidence> {
-    const folgaRes = this.evaluateTimeOff(leaveStartDate, timeOff);
+    const folgaRes = this.evaluateTimeOff(leaveStartDate, leaveEndDate, timeOff);
     const feriasRes = this.evaluateVacation(leaveStartDate, leaveEndDate, vacation);
 
     // Consolidação de Severidade: REJECTED > MANUAL_VALIDATION > APPROVED

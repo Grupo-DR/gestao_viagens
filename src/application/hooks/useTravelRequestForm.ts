@@ -75,9 +75,9 @@ interface UseTravelRequestFormResult {
   /** Atualiza um campo do formulário */
   setField: <K extends keyof TravelRequestFormData>(key: K, value: TravelRequestFormData[K]) => void;
   /** Salva como rascunho */
-  saveDraft: (policyDecision?: PolicyDecision) => Promise<void>;
+  saveDraft: (policyDecisions?: PolicyDecision[]) => Promise<void>;
   /** Envia a solicitação (status calculado pelas regras de negócio) */
-  submit: (policyDecision?: PolicyDecision) => Promise<void>;
+  submit: (policyDecisions?: PolicyDecision[]) => Promise<void>;
 }
 
 // ──────────────────────────────────────────────
@@ -102,7 +102,7 @@ export function useTravelRequestForm(
   );
 
   const handleSubmit = useCallback(
-    async (asDraft: boolean, policyDecision?: PolicyDecision) => {
+    async (asDraft: boolean, policyDecisions?: PolicyDecision[]) => {
       setLoading(true);
       try {
         if (editingRequest) {
@@ -112,10 +112,10 @@ export function useTravelRequestForm(
             editingRequest.audit.history,
             author,
             asDraft,
-            policyDecision
+            policyDecisions
           );
         } else {
-          await createTravelRequest(formData, author, asDraft, policyDecision);
+          await createTravelRequest(formData, author, asDraft, policyDecisions);
         }
         onSuccess();
       } finally {
@@ -125,8 +125,8 @@ export function useTravelRequestForm(
     [editingRequest, formData, author, onSuccess]
   );
 
-  const saveDraft = useCallback((policyDecision?: PolicyDecision) => handleSubmit(true, policyDecision), [handleSubmit]);
-  const submit = useCallback((policyDecision?: PolicyDecision) => handleSubmit(false, policyDecision), [handleSubmit]);
+  const saveDraft = useCallback((policyDecisions?: PolicyDecision[]) => handleSubmit(true, policyDecisions), [handleSubmit]);
+  const submit = useCallback((policyDecisions?: PolicyDecision[]) => handleSubmit(false, policyDecisions), [handleSubmit]);
 
   return { formData, loading, setField, saveDraft, submit };
 }

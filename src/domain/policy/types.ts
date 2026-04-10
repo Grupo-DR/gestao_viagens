@@ -8,6 +8,9 @@ export interface TimeOffPolicyEvidence {
   leaveStartDate: string;
   dataPrevista?: string;
   ultimaFolga?: string;
+  diasUteisSolicitados?: number;
+  regraExtraida?: string;
+  limiteDetetado?: number;
 }
 
 /**
@@ -22,6 +25,7 @@ export interface VacationPolicyEvidence {
   prazoLivre?: string;
   abonoProgramado?: boolean;
   diasProgramados?: number;
+  diasSolicitados?: number;
 }
 
 /**

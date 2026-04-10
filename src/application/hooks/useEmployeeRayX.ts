@@ -3,6 +3,8 @@ import { differenceInDays, isBefore, startOfToday, format } from 'date-fns';
 import { rmSqlClient } from '../../infrastructure/api/rmSqlClient.ts';
 import { API_CONFIG } from '../../infrastructure/api/config.ts';
 import { ExternalVacationDTO, ExternalTimeOffDTO } from '../dtos/ExternalEmployeeDTO.ts';
+import { useIdentity } from '../identity/IdentityContext';
+import { UserRole } from '../../domain/enums';
 
 export interface EmployeeRayXData {
   chapa: string;
@@ -30,6 +32,7 @@ const CATEGORY_WEIGHTS = {
 };
 
 export function useEmployeeRayX() {
+  const { currentUser } = useIdentity();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<EmployeeRayXData[]>([]);
@@ -91,6 +94,15 @@ export function useEmployeeRayX() {
           timeOffRule: t?.DESCRICAO || undefined,
           category
         };
+      })
+      .filter(item => {
+        // SegregaÃ§Ã£o de Dados: MASTER e CAPITAL_HUMANO veem tudo
+        if (!currentUser || currentUser.role === UserRole.MASTER || currentUser.role === UserRole.CAPITAL_HUMANO) {
+          return true;
+        }
+        // Outros papÃ©is veem apenas CCs permitidos
+        const allowed = currentUser.allowedCostCenters || [];
+        return allowed.includes(item.costCenter);
       });
 
       setData(merged);
@@ -101,7 +113,7 @@ export function useEmployeeRayX() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     fetchData();

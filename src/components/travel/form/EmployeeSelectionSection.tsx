@@ -62,7 +62,7 @@ export function EmployeeSelectionSection({
         <div className="p-2 bg-blue-50 rounded-xl border border-blue-100">
           <Plane className="w-5 h-5" />
         </div>
-        <h3 className="font-black text-[10px] uppercase tracking-[0.3em]">Sincronização RM TOTVS</h3>
+        <h3 className="font-black text-[10px] uppercase tracking-[0.3em]">Dados do Colaborador</h3>
         <div className="h-px flex-1 bg-slate-100 ml-2" />
       </div>
 
@@ -169,8 +169,9 @@ export function EmployeeSelectionSection({
           </div>
         </div>
 
-        {chapa && (
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 animate-in slide-in-from-top-2 duration-300">
+      {chapa && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 animate-in slide-in-from-top-2 duration-300">
+          {(reason === TravelReason.FERIAS || reason === TravelReason.FOLGA || reason === TravelReason.FOLGA_FERIAS) && (
             <PolicyStatusCard
               decision={policyEvaluation?.date || null}
               visible={true}
@@ -179,6 +180,12 @@ export function EmployeeSelectionSection({
               leaveEndDate={leaveEndDate}
               onFieldChange={onFieldChange}
             />
+          )}
+
+          {(reason === TravelReason.FERIAS || 
+            reason === TravelReason.FOLGA || 
+            reason === TravelReason.FOLGA_FERIAS || 
+            reason === TravelReason.DEMISSAO) && (
             <DestinationCityAlert
               homeCity={homeCity}
               segments={segments}
@@ -186,8 +193,9 @@ export function EmployeeSelectionSection({
               visible={true}
               geoDecision={policyEvaluation?.geo}
             />
-          </div>
-        )}
+          )}
+        </div>
+      )}
 
         <div className="mt-1 px-1">
           <p className="text-[10px] text-slate-400 font-medium italic">

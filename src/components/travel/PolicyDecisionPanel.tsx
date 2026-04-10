@@ -11,20 +11,36 @@ interface PolicyDecisionPanelProps {
 
 /** Mapeamento de labels técnicas para nomes amigáveis (DR Construtora) */
 const LABEL_MAP: Record<string, string> = {
-  leaveStartDate: 'Início do Gozo',
-  leaveEndDate: 'Fim do Gozo',
+  // Datas e Períodos
+  leaveStartDate: 'Início do Afastamento',
+  leaveEndDate: 'Fim do Afastamento',
   inicioAquisitivo: 'Início Período Aquisitivo',
   fimAquisitivo: 'Fim Período Aquisitivo',
-  saldoDias: 'Saldo de Dias',
   prazoLivre: 'Prazo Limite para Gozo',
-  abonoProgramado: 'Abono Pecuniário',
-  diasProgramados: 'Quantidade de Dias',
   ultimaFolga: 'Última Folga Registrada',
   dataPrevista: 'Data Prevista de Retorno',
+  
+  // Saldos e Quantidades
+  saldoDias: 'Saldo de Dias',
+  diasSolicitados: 'Total de Dias (Corridos)',
+  diasUteisSolicitados: 'Dias Úteis (Solicitados)',
+  diasProgramados: 'Quantidade de Dias',
+  
+  // Regras e Status
+  abonoProgramado: 'Abono Pecuniário',
+  regraExtraida: 'Política Detectada',
+  limiteDetetado: 'Limite Permitido para o Perfil',
 };
 
 function formatLabel(key: string): string {
+  // Busca exata
   if (LABEL_MAP[key]) return LABEL_MAP[key];
+
+  // Busca insensível a maiúsculas/minúsculas
+  const found = Object.entries(LABEL_MAP).find(
+    ([k]) => k.toLowerCase() === key.toLowerCase()
+  );
+  if (found) return found[1];
   
   // Fallback: transforma camelCase em Title Case amigável
   return key
@@ -37,7 +53,7 @@ function formatLabel(key: string): string {
  * PolicyDecisionPanel (Sprint Final)
  * Exibe o veredito do motor de política de forma visual no modal de detalhes.
  */
-export function PolicyDecisionPanel({ decision, className }: PolicyDecisionPanelProps) {
+export const PolicyDecisionPanel: React.FC<PolicyDecisionPanelProps> = ({ decision, className }) => {
   const isApproved = decision.result === PolicyResult.APPROVED;
   const isRejected = decision.result === PolicyResult.REJECTED;
   const isManual = decision.result === PolicyResult.MANUAL_VALIDATION;

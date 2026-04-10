@@ -13,6 +13,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { TrendingUp, Users, Clock, Plane, Loader2, AlertCircle, ShieldCheck, ShieldAlert, XCircle } from 'lucide-react';
 import { PolicyResult } from '../domain/policy/enums';
 import { cn } from '../lib/utils';
+import { useIdentity } from '../application/identity/IdentityContext';
 
 // ──────────────────────────────────────────────
 // Tipos para dados de gráfico
@@ -45,7 +46,11 @@ function groupByField(items: { value: string }[]): ChartDataPoint[] {
 // ──────────────────────────────────────────────
 
 export function Dashboard() {
-  const { requests, loading, error, isDemoMode } = useTravelRequests({ view: 'all' });
+  const { currentUser } = useIdentity();
+  const { requests, loading, error, isDemoMode } = useTravelRequests({ 
+    view: 'all',
+    user: currentUser 
+  });
 
   if (loading) {
     return (

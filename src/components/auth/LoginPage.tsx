@@ -41,26 +41,26 @@ export function LoginPage() {
       />
       <div className="absolute inset-0 z-1 bg-gradient-to-br from-slate-900/40 via-transparent to-slate-900/40 backdrop-blur-[2px]" />
 
-      <div className="w-full max-w-lg relative z-10 animate-in fade-in zoom-in duration-1000">
-        <div className="bg-white/[0.01] backdrop-blur-xl rounded-[48px] border border-white/10 shadow-[0_32px_120px_rgba(0,0,0,0.4)] p-12 space-y-10 overflow-hidden relative group">
+      <div className="w-full max-w-[360px] relative z-10 animate-in fade-in zoom-in duration-1000">
+        <div className="bg-white/[0.01] backdrop-blur-xl rounded-[40px] border border-white/10 shadow-[0_32px_120px_rgba(0,0,0,0.4)] p-8 space-y-8 overflow-hidden relative group">
           
           {/* Subtle light streak animation */}
           <div className="absolute -inset-full h-full w-1/2 z-5 block transform -skew-x-12 bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-20 group-hover:animate-[shimmer_2s_infinite]" />
 
           {/* Header */}
           <div className="text-center space-y-4 relative z-10">
-            <div className="w-20 h-20 bg-white/5 backdrop-blur-md rounded-3xl flex items-center justify-center mx-auto shadow-2xl border border-white/10 transform transition-transform group-hover:scale-105">
+            <div className="w-24 h-24 bg-white/5 backdrop-blur-md rounded-3xl flex items-center justify-center mx-auto shadow-2xl border border-white/10 transform transition-transform group-hover:scale-105">
                <img 
                  src="/logo.png" 
                  alt="Logo" 
-                 className="w-12 h-12 object-contain"
+                 className="w-14 h-14 object-contain"
                  onError={(e) => {
                    e.currentTarget.src = 'https://cdn-icons-png.flaticon.com/512/3125/3125713.png';
                  }}
                />
             </div>
             <div className="space-y-1">
-               <h1 className="text-4xl font-black text-white tracking-tighter uppercase leading-none drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+               <h1 className="text-4xl font-black text-white tracking-tighter leading-none drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
                  DR TravelHub
                </h1>
                <p className="text-white/60 font-bold uppercase tracking-widest text-[10px]">

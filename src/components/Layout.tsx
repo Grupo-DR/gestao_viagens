@@ -25,19 +25,19 @@ const MENU_ITEMS = [
     id: 'validation' as const,
     label: 'Validação CH',
     icon: ShieldCheck,
-    roles: [UserRole.MASTER, UserRole.CAPITAL_HUMANO, UserRole.GESTOR],
+    roles: [UserRole.MASTER, UserRole.CAPITAL_HUMANO],
   },
   {
     id: 'purchase' as const,
     label: 'Compras',
     icon: ShoppingCart,
-    roles: [UserRole.MASTER, UserRole.COMPRADOR, UserRole.GESTOR],
+    roles: [UserRole.MASTER, UserRole.COMPRADOR],
   },
   {
     id: 'dashboard' as const,
     label: 'Dashboard',
     icon: BarChart3,
-    roles: [UserRole.MASTER, UserRole.GESTOR],
+    roles: [UserRole.MASTER, UserRole.ADMINISTRATIVO, UserRole.CAPITAL_HUMANO, UserRole.COMPRADOR, UserRole.GESTOR],
   },
   {
     id: 'raiox' as const,
@@ -171,20 +171,7 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
               </div>
             </div>
 
-            {/* CCs visíveis — apenas para Gestor sem acesso total */}
-            {!isMaster && currentUser.allowedCostCenters && currentUser.allowedCostCenters.length > 0 && currentUser.role === UserRole.GESTOR && (
-              <div className="mt-3 pt-3 border-t border-slate-200">
-                <p className="text-[9px] font-bold text-slate-400 uppercase mb-1.5">Centros de Custo</p>
-                <div className="flex flex-col gap-1">
-                  {currentUser.allowedCostCenters.slice(0, 3).map(cc => (
-                    <span key={cc} className="text-[9px] font-medium text-slate-600 truncate">{cc}</span>
-                  ))}
-                  {currentUser.allowedCostCenters.length > 3 && (
-                    <span className="text-[9px] text-slate-400 italic">+{currentUser.allowedCostCenters.length - 3} mais</span>
-                  )}
-                </div>
-              </div>
-            )}
+
           </div>
 
           {/* Botão Sair */}

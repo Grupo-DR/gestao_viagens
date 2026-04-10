@@ -22,7 +22,7 @@ export function evaluateTravelPolicy(
 
   // 1. Decisão para Políticas de Data (Folga/Férias)
   if (reason === TravelReason.FOLGA) {
-    dateDecision = PolicyEngine.evaluateTimeOff(startDate, integrationData?.rawTimeOff || null);
+    dateDecision = PolicyEngine.evaluateTimeOff(startDate, endDate, integrationData?.rawTimeOff || null);
   } else if (reason === TravelReason.FERIAS) {
     dateDecision = PolicyEngine.evaluateVacation(startDate, endDate, integrationData?.rawVacation || null);
   } else if (reason === TravelReason.FOLGA_FERIAS) {
@@ -75,14 +75,10 @@ export function evaluateTravelPolicy(
 
 /**
  * Sugere o próximo status do workflow com base no resultado da política.
+ * Fluxo: Administrador -> Capital Humano (Avaliação) -> Compras (Emissão).
  */
 export function suggestNextStatus(decision: PolicyDecision): RequestStatus {
-  if (decision.result === PolicyResult.APPROVED) {
-    return RequestStatus.EM_VALIDACAO_CH;
-  }
-  if (decision.result === PolicyResult.MANUAL_VALIDATION) {
-    return RequestStatus.EM_VALIDACAO_CH;
-  }
-  // Se rejeitado ou com erro, volta como rascunho ou pendente de correção
-  return RequestStatus.PENDENTE_CORRECAO;
+  // Todas as solicitações enviadas seguem para o Capital Humano para validação manual,
+  // permitindo que o CH verifique as inconformidades sinalizadas pelo motor de regras.
+  return RequestStatus.EM_VALIDACAO_CH;
 }

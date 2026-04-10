@@ -16,6 +16,11 @@ export const POLICY_RULES: Record<string, PolicyRule> = {
     severity: PolicySeverity.WARNING,
     message: 'Data prevista de folga não foi localizada no Chronos. Requer validação CH.',
   },
+  'FOL_003': {
+    code: 'FOL_003',
+    severity: PolicySeverity.BLOCK,
+    message: 'A duração solicitada excede o limite de 5 dias úteis permitido pela política.',
+  },
 
   // Regras de Férias
   'FER_001': {
@@ -31,7 +36,7 @@ export const POLICY_RULES: Record<string, PolicyRule> = {
   'FER_003': {
     code: 'FER_003',
     severity: PolicySeverity.WARNING,
-    message: 'Dados de programação de férias ausentes no Protheus. Requer validação CH.',
+    message: 'Solicitação de férias sem programação prévia no RM. Requer atenção do CH.',
   },
   'FER_004': {
     code: 'FER_004',
@@ -47,6 +52,16 @@ export const POLICY_RULES: Record<string, PolicyRule> = {
     code: 'FER_006',
     severity: PolicySeverity.BLOCK,
     message: 'Saldo de férias insuficiente para a solicitação.',
+  },
+  'FER_007': {
+    code: 'FER_007',
+    severity: PolicySeverity.BLOCK,
+    message: 'A duração solicitada diverge da quantidade de dias programada no RM.',
+  },
+  'FER_008': {
+    code: 'FER_008',
+    severity: PolicySeverity.BLOCK,
+    message: 'A duração solicitada ultrapassa o saldo de dias disponível.',
   },
 
   // Regras Geográficas
