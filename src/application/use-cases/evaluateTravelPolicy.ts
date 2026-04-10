@@ -59,7 +59,7 @@ export function evaluateTravelPolicy(
  */
 export function suggestNextStatus(decision: PolicyDecision): RequestStatus {
   if (decision.result === PolicyResult.APPROVED) {
-    return RequestStatus.DISPONIVEL_PARA_COMPRA;
+    return RequestStatus.EM_VALIDACAO_CH;
   }
   if (decision.result === PolicyResult.MANUAL_VALIDATION) {
     return RequestStatus.EM_VALIDACAO_CH;

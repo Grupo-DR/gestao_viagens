@@ -162,10 +162,10 @@ function buildQuery(view: TravelListView, userId?: string): Query<DocumentData> 
 function normalizeDocument(raw: DocumentData & { id: string }): TravelRequest {
   // Heurística: documentos v2 têm o campo "requester" como objeto
   if (raw['requester'] && typeof raw['requester'] === 'object') {
-    return raw as unknown as TravelRequest;
+    return { ...(raw as unknown as TravelRequest), requestId: raw.id };
   }
   // Documento legado: mapear
-  return mapLegacyToTravelRequest(raw as unknown as LegacyTravelRequest);
+  return { ...mapLegacyToTravelRequest(raw as unknown as LegacyTravelRequest), requestId: raw.id };
 }
 
 // ──────────────────────────────────────────────

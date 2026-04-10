@@ -25,6 +25,7 @@ export interface UserProfile {
   email: string;
   role: UserRole;
   name?: string;
+  allowedCostCenters?: string[];
 }
 
 // ──────────────────────────────────────────────

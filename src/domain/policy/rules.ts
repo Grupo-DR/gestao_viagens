@@ -15,7 +15,10 @@ export const PolicyEngine = {
   evaluateTimeOff(leaveStartDate: string, timeOff: ExternalTimeOffDTO | null): PolicyDecision {
     const violations: PolicyRule[] = [];
     const warnings: PolicyRule[] = [];
-    const evidence: Record<string, any> = { leaveStartDate, dataPrevista: timeOff?.DATA_PREVISTA };
+    const evidence: Record<string, any> = { 
+      leaveStartDate: leaveStartDate ?? null, 
+      dataPrevista: timeOff?.DATA_PREVISTA ?? null 
+    };
 
     if (!timeOff?.DATA_PREVISTA) {
       warnings.push(POLICY_RULES.FOL_002);
@@ -53,10 +56,10 @@ export const PolicyEngine = {
     const violations: PolicyRule[] = [];
     const warnings: PolicyRule[] = [];
     const evidence: Record<string, any> = { 
-      leaveStartDate, 
-      leaveEndDate, 
-      progrInicio: vacation?.PROGR_INICIO, 
-      progrFim: vacation?.PROGR_FIM 
+      leaveStartDate: leaveStartDate ?? null, 
+      leaveEndDate: leaveEndDate ?? null, 
+      progrInicio: vacation?.PROGR_INICIO ?? null, 
+      progrFim: vacation?.PROGR_FIM ?? null 
     };
 
     if (!vacation?.PROGR_INICIO || !vacation?.PROGR_FIM) {
