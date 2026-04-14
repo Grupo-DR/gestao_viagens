@@ -237,9 +237,13 @@ export function useTravelRequests(options: UseTravelRequestsOptions): UseTravelR
           normalizeDocument({ id: docSnap.id, ...docSnap.data() })
         );
 
-        // Aplicar Filtro de Segregação (MASTER e CH veem tudo)
+        // Aplicar Filtro de Segregação (MASTER, CH e COMPRADOR veem tudo)
         let filtered = normalized;
-        if (user && user.role !== UserRole.MASTER && user.role !== UserRole.CAPITAL_HUMANO) {
+        if (user && 
+            user.role !== UserRole.MASTER && 
+            user.role !== UserRole.CAPITAL_HUMANO &&
+            user.role !== UserRole.COMPRADOR
+        ) {
            const sanitizedAllowedCCs = (user.allowedCostCenters || []).map(sanitizeCC);
            filtered = normalized.filter(r => 
              // O solicitante sempre vê suas próprias solicitações (independente de CC)
