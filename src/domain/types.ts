@@ -67,19 +67,57 @@ export interface RequesterInfo {
   requesterRole: UserRole;
 }
 
+// ──────────────────────────────────────────────
+// Passageiro — Union Type Discriminado
+// ──────────────────────────────────────────────
+
+/** Discriminante do tipo de passageiro */
+export type PassengerType = 'internal' | 'external';
+
 /**
- * Dados do colaborador que vai viajar.
- * Futuramente preenchido via CHAPA pelo endpoint do Protheus.
+ * Passageiro Interno — Colaborador DR Construtora.
+ * Identificado via CHAPA no RM TOTVS.
  */
-export interface EmployeeInfo {
+export interface InternalPassenger {
+  passengerType: 'internal';
   chapa: string;
   employeeName: string;
   functionName?: string;
   employmentStatus?: EmploymentStatus;
   directOrIndirect?: DirectOrIndirect;
-  cpf?: string;           // Novo: Apenas números
-  birthDate?: string;     // Novo: YYYY-MM-DD
+  /** CPF apenas números — preenchido via integração RM */
+  cpf?: string;
+  /** Data de nascimento YYYY-MM-DD — preenchida via integração RM */
+  birthDate?: string;
 }
+
+/**
+ * Passageiro Externo — Terceiro / Convidado.
+ * Não possui vínculo com o RM TOTVS.
+ * O custo é apadrinhado pelo Centro de Custo do Solicitante.
+ */
+export interface ExternalPassenger {
+  passengerType: 'external';
+  fullName: string;
+  /** CPF (11 dígitos numéricos) ou número de passaporte */
+  cpfOrPassport: string;
+  /** Data de nascimento YYYY-MM-DD — obrigatório */
+  birthDate: string;
+  contactEmail: string;
+  contactPhone: string;
+  /** Centro de Custo do Solicitante — herdado no momento da criação */
+  sponsorCostCenter: string;
+}
+
+/** Union Type — tipo de passageiro aceito em TravelRequest */
+export type Passenger = InternalPassenger | ExternalPassenger;
+
+/**
+ * Alias de retrocompatibilidade.
+ * `EmployeeInfo` referencia `InternalPassenger` para não quebrar
+ * o EmployeeMapper nem importações existentes.
+ */
+export type EmployeeInfo = InternalPassenger;
 
 export type TransportMode = 'aereo' | 'rodoviario';
 export type TravelDirection = 'ida' | 'volta';
@@ -187,7 +225,8 @@ export interface TravelRequest {
   status: RequestStatus;
 
   requester: RequesterInfo;
-  employee: EmployeeInfo;
+  /** Passageiro da viagem — interno (Colaborador DR) ou externo (Terceiro) */
+  employee: Passenger;
   travel: TravelInfo;
   leavePeriod: LeavePeriod;
   validation: ValidationInfo;
@@ -238,14 +277,26 @@ export interface LegacyTravelRequest {
 
 /** Dados do formulário de criação/edição — tudo opcional para rascunho */
 export interface TravelRequestFormData {
-  // Employee
+  // ── Tipo de passageiro ────────────────────────
+  passengerType: PassengerType;
+
+  // ── Passageiro Interno (Colaborador DR / RM) ──
   chapa: string;
   employeeName: string;
   functionName: string;
-  cpf: string;        // Novo
-  birthDate: string;  // Novo
+  /** CPF apenas números — preenchido via integração RM */
+  cpf: string;
+  birthDate: string;
 
-  // Travel — Itinerário v3
+  // ── Passageiro Externo (Terceiro / Convidado) ─
+  externalFullName: string;
+  /** CPF (11 dígitos) ou número de passaporte */
+  externalCpfOrPassport: string;
+  externalBirthDate: string;
+  externalContactEmail: string;
+  externalContactPhone: string;
+
+  // ── Dados de Viagem — Itinerário v3 ──────────
   reason: TravelReason;
   segments: TravelSegment[];
   
@@ -261,7 +312,7 @@ export interface TravelRequestFormData {
   managerName: string;
   justification: string;
 
-  // Leave (visível apenas para motivos CH)
+  // Leave (visível apenas para motivos CH — não aplicável a externos)
   leaveStartDate: string;
   leaveEndDate: string;
 }

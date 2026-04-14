@@ -26,12 +26,9 @@ describe('travelRequest.rules', () => {
       expect(getInitialStatus(TravelReason.TREINAMENTO, true)).toBe(RequestStatus.RASCUNHO);
     });
 
-    it('should return EM_VALIDACAO_CH for reasons requiring validation when not draft', () => {
+    it('should return EM_VALIDACAO_CH for all requests when not draft', () => {
       expect(getInitialStatus(TravelReason.FERIAS, false)).toBe(RequestStatus.EM_VALIDACAO_CH);
-    });
-
-    it('should return DISPONIVEL_PARA_COMPRA for reasons NOT requiring validation when not draft', () => {
-      expect(getInitialStatus(TravelReason.TREINAMENTO, false)).toBe(RequestStatus.DISPONIVEL_PARA_COMPRA);
+      expect(getInitialStatus(TravelReason.TREINAMENTO, false)).toBe(RequestStatus.EM_VALIDACAO_CH);
     });
   });
 
@@ -70,7 +67,7 @@ describe('travelRequest.rules', () => {
 
       const result = mapLegacyToTravelRequest(legacy);
       expect(result.requestId).toBe('leg-123');
-      expect(result.employee.employeeName).toBe('John Doe');
+      expect((result.employee as any).employeeName).toBe('John Doe');
       expect(result.travel.origin).toBe('SP');
       expect(result.travel.destination).toBe('RJ');
       expect(result.validation.validationRequired).toBe(true);

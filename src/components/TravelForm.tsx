@@ -68,6 +68,10 @@ export function TravelForm({ onClose, editingRequest }: TravelFormProps) {
     integrationResult?.rawVacation?.CIDADE ||
     '';
 
+  const isPassengerReady = formData.passengerType === 'external'
+    ? !!(formData.externalFullName && formData.externalCpfOrPassport && formData.externalBirthDate)
+    : !!formData.chapa;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
       <div className="w-full max-w-5xl bg-white rounded-[40px] shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[92vh]">
@@ -105,6 +109,12 @@ export function TravelForm({ onClose, editingRequest }: TravelFormProps) {
             policyEvaluation={evaluation}
             homeCity={homeCity}
             segments={formData.segments}
+            passengerType={formData.passengerType}
+            externalFullName={formData.externalFullName}
+            externalCpfOrPassport={formData.externalCpfOrPassport}
+            externalBirthDate={formData.externalBirthDate}
+            externalContactEmail={formData.externalContactEmail}
+            externalContactPhone={formData.externalContactPhone}
             onCostCenterChange={(cc) => setField('costCenter', cc)}
             onEmployeeChange={(chapa) => setField('chapa', chapa)}
             onFieldChange={setField}
@@ -122,7 +132,9 @@ export function TravelForm({ onClose, editingRequest }: TravelFormProps) {
           <div className="flex items-center gap-2 text-slate-400">
             <AlertCircle className="w-4 h-4" />
             <span className="text-[10px] font-bold uppercase tracking-widest">
-              Os dados serão sincronizados com o RM TOTVS
+              {formData.passengerType === 'internal' 
+                ? 'Os dados serão sincronizados com o RM TOTVS' 
+                : 'Terceiro sem vínculo (Cadastro Manual)'}
             </span>
           </div>
 
@@ -134,7 +146,7 @@ export function TravelForm({ onClose, editingRequest }: TravelFormProps) {
                 if (evaluation?.geo) decisions.push(evaluation.geo);
                 submit(decisions);
               }}
-              disabled={loading || integrationLoading || !formData.chapa}
+              disabled={loading || integrationLoading || !isPassengerReady}
               className="px-10 py-4 bg-slate-900 text-white rounded-[22px] text-xs font-black hover:bg-slate-800 transition-all shadow-2xl shadow-slate-200 flex items-center gap-3 tracking-widest disabled:opacity-30"
             >
               <Send className="w-5 h-5" />

@@ -1,6 +1,6 @@
 import { ExternalVacationDTO, ExternalTimeOffDTO } from '../dtos/ExternalEmployeeDTO';
 import { 
-  EmployeeInfo, 
+  InternalPassenger, 
   VacationValidation,
   TimeOffValidation
 } from '../../domain/types';
@@ -15,7 +15,7 @@ export const EmployeeMapper = {
   /**
    * Mapeia dados básicos do colaborador.
    */
-  mapToEmployeeInfo(data: ExternalVacationDTO): EmployeeInfo {
+  mapToEmployeeInfo(data: ExternalVacationDTO): InternalPassenger {
     const statusMap: Record<string, EmploymentStatus> = {
       'A': EmploymentStatus.ATIVO,
       'D': EmploymentStatus.DEMITIDO,
@@ -23,8 +23,9 @@ export const EmployeeMapper = {
     };
 
     return {
-      chapa: data.CHAPA,
-      employeeName: data.NOME,
+      passengerType: 'internal',
+      chapa: data.CHAPA ?? '',
+      employeeName: data.NOME ?? '',
       functionName: data.FUNCAO,
       employmentStatus: statusMap[data.CODSITUACAO] || EmploymentStatus.ATIVO,
       directOrIndirect: undefined,

@@ -19,6 +19,7 @@ import type {
   PurchaseInfo,
   LeavePeriod,
   HistoryEntry,
+  PassengerType,
 } from './types';
 
 // ──────────────────────────────────────────────
@@ -39,15 +40,20 @@ export function needsValidation(reason: TravelReason): boolean {
 
 /**
  * Calcula o status inicial de uma nova solicitação ao ser enviada.
+ * Regras:
  * - Rascunho → sempre RASCUNHO
- * - Motivos CH → direto para EM_VALIDACAO_CH
- * - Demais → DISPONIVEL_PARA_COMPRA
+ * - Passageiro EXTERNO → sempre EM_VALIDACAO_CH (governança obrigatória)
+ * - Motivos CH (Folga/Férias) → EM_VALIDACAO_CH
+ * - Demais → EM_VALIDACAO_CH (alinhado ao workflow padrão)
  */
 export function getInitialStatus(
   reason: TravelReason,
-  asDraft: boolean
+  asDraft: boolean,
+  passengerType?: PassengerType
 ): RequestStatus {
   if (asDraft) return RequestStatus.RASCUNHO;
+  // Externos SEMPRE passam pela fila CH para governança do apadrinhamento
+  if (passengerType === 'external') return RequestStatus.EM_VALIDACAO_CH;
   return RequestStatus.EM_VALIDACAO_CH;
 }
 
@@ -278,6 +284,7 @@ export function mapLegacyToTravelRequest(legacy: LegacyTravelRequest): TravelReq
       requesterRole: UserRole.ADMINISTRATIVO,
     },
     employee: {
+      passengerType: 'internal',
       chapa: '',
       employeeName: legacy.passengerName ?? '',
     },
@@ -304,11 +311,16 @@ export function mapLegacyToTravelRequest(legacy: LegacyTravelRequest): TravelReq
 }
 
 /**
- * Retorna o nome de exibição do colaborador: prioriza employeeName,
- * cai para requesterName como fallback (dados legados).
+ * Retorna o nome de exibição do passageiro.
+ * Suporta o union type Passenger (interno ou externo).
+ * Cai para requesterName como fallback (dados legados).
  */
 export function getPassengerDisplayName(request: TravelRequest): string {
-  return request.employee.employeeName || request.requester.requesterName || '—';
+  const { employee } = request;
+  if (employee.passengerType === 'external') {
+    return employee.fullName || '—';
+  }
+  return employee.employeeName || request.requester.requesterName || '—';
 }
 
 /**

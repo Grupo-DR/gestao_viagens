@@ -29,6 +29,7 @@ const MOCK_REQUESTS: TravelRequest[] = [
       requesterRole: UserRole.ADMINISTRATIVO,
     },
     employee: {
+      passengerType: 'internal',
       chapa: '001020',
       employeeName: 'Carlos Alberto Lima',
       functionName: 'Técnico de Manutenção'
@@ -77,6 +78,7 @@ const MOCK_REQUESTS: TravelRequest[] = [
       requesterRole: UserRole.ADMINISTRATIVO,
     },
     employee: {
+      passengerType: 'internal',
       chapa: '002040',
       employeeName: 'Roberta Peixoto',
       functionName: 'Coordenadora RH'

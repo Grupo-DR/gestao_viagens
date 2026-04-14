@@ -19,7 +19,7 @@ export function ApprovalEmailBox({ request, updatedSegments, onClose }: Approval
 
   const emailContent = useMemo(() => {
     const passenger = getPassengerDisplayName(request);
-    const chapa = request.employee.chapa;
+    const chapa = request.employee.passengerType === 'external' ? 'Terceiro/Convidado' : (request.employee as any).chapa;
     
     // Define o que é Orçado e o que é Real
     // Orçado: requestedSegments (v3) ou o segments original
@@ -37,7 +37,7 @@ export function ApprovalEmailBox({ request, updatedSegments, onClose }: Approval
     text += `Olá,\n\n`;
     text += `Solicitamos seu "de acordo" para a emissão da passagem abaixo:\n\n`;
     text += `PASSAGEIRO: ${passenger.toUpperCase()}\n`;
-    text += `CHAPA: ${chapa}\n`;
+    text += `VÍNCULO/CHAPA: ${chapa}\n`;
     text += `MOTIVO: ${request.travel.reason}\n\n`;
     
     text += `COMPARATIVO DE CUSTOS (ORÇADO vs REAL):\n`;

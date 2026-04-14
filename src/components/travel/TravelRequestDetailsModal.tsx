@@ -119,17 +119,25 @@ export function TravelRequestDetailsModal({
                 <p className="text-xs font-bold text-slate-700">{request.travel.costCenter}</p>
               </div>
               <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Chapa</label>
-                <p className="text-xs font-bold text-slate-700">{request.employee.chapa}</p>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">
+                  {request.employee.passengerType === 'external' ? 'Vínculo' : 'Chapa'}
+                </label>
+                <p className="text-xs font-bold text-slate-700">
+                  {request.employee.passengerType === 'external' ? 'Terceiro / Convidado' : (request.employee as any).chapa}
+                </p>
               </div>
               <div>
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Nome Completo</label>
                 <p className="text-xs font-bold text-slate-700">{getPassengerDisplayName(request)}</p>
               </div>
               <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">CPF</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">
+                  {request.employee.passengerType === 'external' && !/^\d+$/.test((request.employee as any).cpfOrPassport || '') ? 'Passaporte' : 'CPF'}
+                </label>
                 <p className="text-xs font-bold text-slate-700">
-                  {request.employee.cpf?.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') || '—'}
+                  {request.employee.passengerType === 'external' 
+                    ? (request.employee as any).cpfOrPassport 
+                    : (request.employee as any).cpf?.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') || '—'}
                 </p>
               </div>
               <div>

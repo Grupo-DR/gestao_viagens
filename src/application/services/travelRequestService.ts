@@ -21,10 +21,11 @@ import {
 import type {
   TravelRequest,
   TravelRequestFormData,
-  UserProfile,
-  HistoryEntry,
   PurchaseInfo,
   TravelSegment,
+  Passenger,
+  UserProfile,
+  HistoryEntry,
 } from '../../domain/types';
 import { PolicyDecision } from '../../domain/policy/types';
 import { suggestNextStatus } from '../use-cases/evaluateTravelPolicy';
@@ -63,6 +64,30 @@ function buildHistoryEntry(
   };
 }
 
+/** Puxa os dados corretos do passageiro (Interno vs Externo) */
+function buildEmployeePayload(formData: TravelRequestFormData): Passenger {
+  if (formData.passengerType === 'external') {
+    return {
+      passengerType: 'external',
+      fullName: formData.externalFullName,
+      cpfOrPassport: formData.externalCpfOrPassport,
+      birthDate: formData.externalBirthDate,
+      contactEmail: formData.externalContactEmail,
+      contactPhone: formData.externalContactPhone,
+      sponsorCostCenter: formData.costCenter,
+    };
+  }
+
+  return {
+    passengerType: 'internal',
+    chapa: formData.chapa,
+    employeeName: formData.employeeName,
+    functionName: formData.functionName,
+    cpf: formData.cpf || null,
+    birthDate: formData.birthDate || null,
+  };
+}
+
 // ──────────────────────────────────────────────
 // Comandos públicos
 // ──────────────────────────────────────────────
@@ -79,7 +104,7 @@ export async function createTravelRequest(
 ): Promise<string> {
   const status = asDraft 
     ? RequestStatus.RASCUNHO 
-    : (policyDecisions?.[0] ? suggestNextStatus(policyDecisions[0]) : getInitialStatus(formData.reason, false));
+    : (policyDecisions?.[0] ? suggestNextStatus(policyDecisions[0]) : getInitialStatus(formData.reason, false, formData.passengerType));
   const now = new Date().toISOString();
 
   const historyEntry = buildHistoryEntry(
@@ -96,13 +121,7 @@ export async function createTravelRequest(
       requesterEmail: author.email,
       requesterRole: author.role,
     },
-    employee: {
-      chapa: formData.chapa,
-      employeeName: formData.employeeName,
-      functionName: formData.functionName,
-      cpf: formData.cpf || null,
-      birthDate: formData.birthDate || null,
-    },
+    employee: buildEmployeePayload(formData),
     travel: {
       reason: formData.reason,
       segments: Array.isArray(formData.segments) ? formData.segments : [],
@@ -168,7 +187,7 @@ export async function updateTravelRequest(
 ): Promise<void> {
   const status = asDraft
     ? RequestStatus.RASCUNHO
-    : (policyDecisions?.[0] ? suggestNextStatus(policyDecisions[0]) : getInitialStatus(formData.reason, false));
+    : (policyDecisions?.[0] ? suggestNextStatus(policyDecisions[0]) : getInitialStatus(formData.reason, false, formData.passengerType));
 
   const historyEntry = buildHistoryEntry(
     status,
@@ -180,11 +199,7 @@ export async function updateTravelRequest(
   try {
     await updateDoc(doc(db, COLLECTION, requestId), {
       status,
-      'employee.chapa': formData.chapa,
-      'employee.employeeName': formData.employeeName,
-      'employee.functionName': formData.functionName,
-      'employee.cpf': formData.cpf || null,
-      'employee.birthDate': formData.birthDate || null,
+      employee: buildEmployeePayload(formData),
       'travel.reason': formData.reason,
       'travel.segments': Array.isArray(formData.segments) ? formData.segments : [],
       'travel.origin': formData.origin,

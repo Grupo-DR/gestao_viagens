@@ -21,11 +21,17 @@ import { normalizeSegmentsFromTravel } from '../../domain/travelSegment.helpers'
 function buildInitialState(editing: TravelRequest | null): TravelRequestFormData {
   if (!editing) {
     return {
+      passengerType: 'internal',
       chapa: '',
       employeeName: '',
       functionName: '',
       cpf: '',
       birthDate: '',
+      externalFullName: '',
+      externalCpfOrPassport: '',
+      externalBirthDate: '',
+      externalContactEmail: '',
+      externalContactPhone: '',
       reason: TravelReason.VISITA_TECNICA,
       segments: [],
       origin: '',
@@ -42,13 +48,21 @@ function buildInitialState(editing: TravelRequest | null): TravelRequestFormData
     };
   }
 
+  const isExternal = editing.employee.passengerType === 'external';
+  
   // Preenche com dados do modelo v3
   return {
-    chapa: editing.employee.chapa ?? '',
-    employeeName: editing.employee.employeeName ?? '',
-    functionName: editing.employee.functionName ?? '',
-    cpf: editing.employee.cpf ?? '',
-    birthDate: editing.employee.birthDate ?? '',
+    passengerType: editing.employee.passengerType || 'internal',
+    chapa: (!isExternal && 'chapa' in editing.employee) ? editing.employee.chapa ?? '' : '',
+    employeeName: (!isExternal && 'employeeName' in editing.employee) ? editing.employee.employeeName ?? '' : '',
+    functionName: (!isExternal && 'functionName' in editing.employee) ? editing.employee.functionName ?? '' : '',
+    cpf: (!isExternal && 'cpf' in editing.employee) ? editing.employee.cpf ?? '' : '',
+    birthDate: (!isExternal && 'birthDate' in editing.employee) ? editing.employee.birthDate ?? '' : '',
+    externalFullName: isExternal && 'fullName' in editing.employee ? editing.employee.fullName ?? '' : '',
+    externalCpfOrPassport: isExternal && 'cpfOrPassport' in editing.employee ? editing.employee.cpfOrPassport ?? '' : '',
+    externalBirthDate: isExternal && 'birthDate' in editing.employee ? editing.employee.birthDate ?? '' : '',
+    externalContactEmail: isExternal && 'contactEmail' in editing.employee ? editing.employee.contactEmail ?? '' : '',
+    externalContactPhone: isExternal && 'contactPhone' in editing.employee ? editing.employee.contactPhone ?? '' : '',
     reason: editing.travel.reason ?? TravelReason.VISITA_TECNICA,
     segments: editing.travel.segments ?? normalizeSegmentsFromTravel(editing.travel),
     origin: editing.travel.origin ?? '',
