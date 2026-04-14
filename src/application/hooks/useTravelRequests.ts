@@ -168,13 +168,29 @@ function buildQuery(view: TravelListView, userId?: string): Query<DocumentData> 
 }
 
 /**
+ * Remove caracteres especiais de Centros de Custo para permitir comparação flexível.
+ * Ex: "3044.03" -> "304403"
+ */
+function sanitizeCC(cc: string | undefined): string {
+  return (cc || '').replace(/[^a-zA-Z0-9]/g, '');
+}
+
+/**
  * Tenta interpretar um documento Firestore como v2 nativo.
  * Se falhar (documento legado), usa o mapeador de compatibilidade.
  */
 function normalizeDocument(raw: DocumentData & { id: string }): TravelRequest {
   // Heurística: documentos v2 têm o campo "requester" como objeto
   if (raw['requester'] && typeof raw['requester'] === 'object') {
-    return { ...(raw as unknown as TravelRequest), requestId: raw.id };
+    const doc = { ...(raw as unknown as TravelRequest), requestId: raw.id };
+    
+    // Auto-correção: Se "segments" estiver na raiz (erro de salvamento transicional), 
+    // movemos para dentro de travel para não quebrar a UI
+    if (raw['segments'] && Array.isArray(raw['segments']) && (!doc.travel.segments || doc.travel.segments.length === 0)) {
+       doc.travel.segments = raw['segments'];
+    }
+    
+    return doc;
   }
   // Documento legado: mapear
   return { ...mapLegacyToTravelRequest(raw as unknown as LegacyTravelRequest), requestId: raw.id };
@@ -221,11 +237,16 @@ export function useTravelRequests(options: UseTravelRequestsOptions): UseTravelR
           normalizeDocument({ id: docSnap.id, ...docSnap.data() })
         );
 
-        // Aplicar Filtro de SegregaÃ§Ã£o (MASTER e CH veem tudo)
+        // Aplicar Filtro de Segregação (MASTER e CH veem tudo)
         let filtered = normalized;
         if (user && user.role !== UserRole.MASTER && user.role !== UserRole.CAPITAL_HUMANO) {
-           const allowedCCs = user.allowedCostCenters || [];
-           filtered = normalized.filter(r => allowedCCs.includes(r.travel.costCenter));
+           const sanitizedAllowedCCs = (user.allowedCostCenters || []).map(sanitizeCC);
+           filtered = normalized.filter(r => 
+             // O solicitante sempre vê suas próprias solicitações (independente de CC)
+             r.requester.requesterId === user.uid ||
+             // Outros casos caem na regra do Centro de Custo sanitizado
+             sanitizedAllowedCCs.includes(sanitizeCC(r.travel.costCenter))
+           );
         }
 
         if (urgentOnly) {

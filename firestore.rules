@@ -18,11 +18,13 @@ service cloud.firestore {
         ? data.employee.fullName is string && data.employee.cpfOrPassport is string
         : data.employee.chapa is string;
 
-      return data.keys().hasAll(['status', 'employee', 'travel', 'audit']) &&
+      // Mandatory fields for structural integrity
+      let hasCoreFields = data.keys().hasAll(['status', 'employee', 'travel', 'audit']);
+      
+      return hasCoreFields &&
              data.status is string &&
              employeeValid &&
              data.travel.reason is string &&
-             (!data.travel.keys().hasAll(['isUrgent']) || data.travel.isUrgent is bool) &&
              data.audit.createdAt is string;
     }
 
