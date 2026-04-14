@@ -136,15 +136,15 @@ export async function createTravelRequest(
       justification: formData.justification || null,
       isUrgent: formData.isUrgent ?? false,
     },
-    leavePeriod: needsValidation(formData.reason)
+    leavePeriod: needsValidation(formData.reason, formData.passengerType)
       ? {
           leaveStartDate: formData.leaveStartDate || null,
           leaveEndDate: formData.leaveEndDate || null,
         }
       : {},
     validation: {
-      validationRequired: needsValidation(formData.reason),
-      validationStatus: needsValidation(formData.reason)
+      validationRequired: needsValidation(formData.reason, formData.passengerType),
+      validationStatus: needsValidation(formData.reason, formData.passengerType)
         ? ValidationStatus.PENDENTE
         : ValidationStatus.NAO_APLICAVEL,
       policyDecision: policyDecisions?.[0] || null, // Fallback legada
@@ -215,7 +215,7 @@ export async function updateTravelRequest(
       'travel.isUrgent': formData.isUrgent ?? false,
       'leavePeriod.leaveStartDate': formData.leaveStartDate || null,
       'leavePeriod.leaveEndDate': formData.leaveEndDate || null,
-      'validation.validationRequired': needsValidation(formData.reason),
+      'validation.validationRequired': needsValidation(formData.reason, formData.passengerType),
       'validation.policyDecision': policyDecisions?.[0] || null,
       'validation.policyDecisions': policyDecisions || [],
       'audit.updatedAt': new Date().toISOString(),

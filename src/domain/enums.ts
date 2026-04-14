@@ -49,6 +49,8 @@ export const REASONS_REQUIRING_CH_VALIDATION = new Set<TravelReason>([
   TravelReason.FOLGA,
   TravelReason.FERIAS,
   TravelReason.FOLGA_FERIAS,
+  TravelReason.ADMISSAO,
+  TravelReason.DEMISSAO,
 ]);
 
 /** Status do processo de validação CH */

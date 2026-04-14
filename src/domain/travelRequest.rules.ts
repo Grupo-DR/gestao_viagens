@@ -27,10 +27,11 @@ import type {
 // ──────────────────────────────────────────────
 
 /**
- * Determina se o motivo da viagem exige validação pelo Capital Humano.
- * Regra de negócio: Folga, Férias e Folga+Férias passam pela fila CH.
+ * Determina se o motivo da viagem ou tipo de passageiro exige validação pelo Capital Humano.
+ * Regra de negócio: Folga, Férias, Admissão, Demissão ou passageiro EXTERNO passam pela fila CH.
  */
-export function needsValidation(reason: TravelReason): boolean {
+export function needsValidation(reason: TravelReason, passengerType?: PassengerType): boolean {
+  if (passengerType === 'external') return true;
   return REASONS_REQUIRING_CH_VALIDATION.has(reason);
 }
 
@@ -71,9 +72,11 @@ export function getInitialStatus(
   passengerType?: PassengerType
 ): RequestStatus {
   if (asDraft) return RequestStatus.RASCUNHO;
-  // Externos SEMPRE passam pela fila CH para governança do apadrinhamento
-  if (passengerType === 'external') return RequestStatus.EM_VALIDACAO_CH;
-  return RequestStatus.EM_VALIDACAO_CH;
+  
+  // Se precisa de validação, vai para CH. Caso contrário, libera para compra.
+  return needsValidation(reason, passengerType) 
+    ? RequestStatus.EM_VALIDACAO_CH 
+    : RequestStatus.DISPONIVEL_PARA_COMPRA;
 }
 
 /**
