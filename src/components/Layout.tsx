@@ -25,7 +25,7 @@ const MENU_ITEMS = [
     id: 'validation' as const,
     label: 'Validação CH',
     icon: ShieldCheck,
-    roles: [UserRole.MASTER, UserRole.CAPITAL_HUMANO],
+    roles: [UserRole.MASTER, UserRole.CAPITAL_HUMANO, UserRole.COMPRADOR],
   },
   {
     id: 'purchase' as const,

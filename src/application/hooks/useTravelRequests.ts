@@ -152,6 +152,7 @@ function buildQuery(view: TravelListView, userId?: string): Query<DocumentData> 
       return query(
         col,
         where('status', 'in', [
+          RequestStatus.EM_VALIDACAO_CH,
           RequestStatus.DISPONIVEL_PARA_COMPRA, 
           RequestStatus.APROVADA, 
           RequestStatus.AGUARDANDO_APROVACAO_COMPRA,

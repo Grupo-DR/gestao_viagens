@@ -48,7 +48,7 @@ export function TravelRequestDetailsModal({
   const isHR = currentUserRole === UserRole.CAPITAL_HUMANO || currentUserRole === UserRole.ADMINISTRATIVO || currentUserRole === UserRole.MASTER;
   const isBuyer = currentUserRole === UserRole.COMPRADOR || currentUserRole === UserRole.ADMINISTRATIVO || currentUserRole === UserRole.MASTER;
   
-  const canApproveHR = isHR && request.status === RequestStatus.EM_VALIDACAO_CH;
+  const canApproveHR = (isHR || currentUserRole === UserRole.COMPRADOR) && request.status === RequestStatus.EM_VALIDACAO_CH;
   const canBuy = isBuyer && [RequestStatus.DISPONIVEL_PARA_COMPRA, RequestStatus.APROVADA].includes(request.status);
   
   // Novas permissões de governança (Comprador pode registrar aprovacao externa)
@@ -252,8 +252,8 @@ export function TravelRequestDetailsModal({
              </div>
           </section>
 
-          {/* 5. TÓPICO: POLÍTICAS APLICADAS (Escondido para Comprador) */}
-          {currentUserRole !== UserRole.COMPRADOR && (
+          {/* 5. TÓPICO: POLÍTICAS APLICADAS */}
+          {true && (
             <section className="space-y-6">
                <div className="flex items-center gap-3">
                   <div className="w-1.5 h-6 bg-slate-400 rounded-full" />
