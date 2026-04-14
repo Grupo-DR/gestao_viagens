@@ -10,7 +10,7 @@ import { collection, query, where, orderBy, onSnapshot, Query, DocumentData } fr
 import { db, handleFirestoreError, OperationType } from '../../infrastructure/firebase/firebase';
 import { RequestStatus, PurchaseStatus, ValidationStatus, TravelReason } from '../../domain/enums';
 import { PolicyResult } from '../../domain/policy/enums';
-import { mapLegacyToTravelRequest } from '../../domain/travelRequest.rules';
+import { mapLegacyToTravelRequest, isUrgentReason } from '../../domain/travelRequest.rules';
 import type { TravelRequest, LegacyTravelRequest, UserProfile } from '../../domain/types';
 import { UserRole } from '../../domain/enums';
 
@@ -120,6 +120,8 @@ interface UseTravelRequestsOptions {
   userId?: string;
   /** Perfil do usuário para segregação de dados */
   user?: UserProfile | null;
+  /** Se verdadeiro, retorna apenas as solicitações com SLA de Urgência */
+  urgentOnly?: boolean;
 }
 
 interface UseTravelRequestsResult {
@@ -182,8 +184,18 @@ function normalizeDocument(raw: DocumentData & { id: string }): TravelRequest {
 // Hook principal
 // ──────────────────────────────────────────────
 
+function applyUrgentSort(list: TravelRequest[]): TravelRequest[] {
+  return [...list].sort((a, b) => {
+    const aUrgent = isUrgentReason(a.travel.reason);
+    const bUrgent = isUrgentReason(b.travel.reason);
+    if (aUrgent && !bUrgent) return -1;
+    if (!aUrgent && bUrgent) return 1;
+    return 0; // se os dois forem iguais, mantém a ordem cronológica original da timeline do Firestore
+  });
+}
+
 export function useTravelRequests(options: UseTravelRequestsOptions): UseTravelRequestsResult {
-  const { view, userId, user } = options;
+  const { view, userId, user, urgentOnly } = options;
   const [requests, setRequests] = useState<TravelRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -216,7 +228,11 @@ export function useTravelRequests(options: UseTravelRequestsOptions): UseTravelR
            filtered = normalized.filter(r => allowedCCs.includes(r.travel.costCenter));
         }
 
-        setRequests(filtered);
+        if (urgentOnly) {
+          filtered = filtered.filter(r => isUrgentReason(r.travel.reason));
+        }
+
+        setRequests(applyUrgentSort(filtered));
         setLoading(false);
         setIsDemoMode(false);
       },
@@ -235,7 +251,11 @@ export function useTravelRequests(options: UseTravelRequestsOptions): UseTravelR
           if (view === 'buyer') filtered = allData.filter(r => [RequestStatus.DISPONIVEL_PARA_COMPRA, RequestStatus.APROVADA].includes(r.status));
           if (view === 'requester' && userId) filtered = allData.filter(r => r.requester.requesterId === userId);
 
-          setRequests(filtered);
+          if (urgentOnly) {
+            filtered = filtered.filter(r => isUrgentReason(r.travel.reason));
+          }
+
+          setRequests(applyUrgentSort(filtered));
           setIsDemoMode(true);
           setLoading(false);
         } else {
@@ -247,7 +267,7 @@ export function useTravelRequests(options: UseTravelRequestsOptions): UseTravelR
     );
 
     return () => unsubscribe();
-  }, [view, userId, user]);
+  }, [view, userId, user, urgentOnly]);
 
   return { requests, loading, error, isDemoMode };
 }

@@ -126,6 +126,25 @@ export function TravelForm({ onClose, editingRequest }: TravelFormProps) {
             onSegmentsChange={(segments) => setField('segments', segments)}
             onFieldChange={setField}
           />
+
+          <div className="flex items-center gap-3 bg-red-50/60 p-6 rounded-[24px] border border-red-100">
+            <label className="flex items-center gap-4 cursor-pointer group w-full">
+              <input
+                type="checkbox"
+                checked={formData.isUrgent ?? false}
+                onChange={(e) => setField('isUrgent', e.target.checked)}
+                className="w-6 h-6 text-red-600 rounded-[8px] border-red-300 focus:ring-red-500 transition-all cursor-pointer bg-white"
+              />
+              <div className="flex flex-col">
+                <span className="text-sm font-black text-red-900 group-hover:text-red-700 transition-colors uppercase tracking-widest">
+                  🚨 Sinalizar Viagem como URGENTE / SLA Curtíssimo
+                </span>
+                <span className="text-xs text-red-700 font-medium opacity-90 mt-1">
+                  Marque esta opção apenas se a passagem precisar furar a fila cronológica de atendimento das gerências e suprimentos.
+                </span>
+              </div>
+            </label>
+          </div>
         </div>
 
         <div className="px-10 py-8 border-t border-slate-50 flex items-center justify-between bg-white">

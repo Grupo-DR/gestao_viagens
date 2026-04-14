@@ -134,6 +134,7 @@ export async function createTravelRequest(
       projectCode: formData.projectCode || null,
       managerName: formData.managerName || null,
       justification: formData.justification || null,
+      isUrgent: formData.isUrgent ?? false,
     },
     leavePeriod: needsValidation(formData.reason)
       ? {
@@ -211,6 +212,7 @@ export async function updateTravelRequest(
       'travel.projectCode': formData.projectCode || null,
       'travel.managerName': formData.managerName || null,
       'travel.justification': formData.justification || null,
+      'travel.isUrgent': formData.isUrgent ?? false,
       'leavePeriod.leaveStartDate': formData.leaveStartDate || null,
       'leavePeriod.leaveEndDate': formData.leaveEndDate || null,
       'validation.validationRequired': needsValidation(formData.reason),

@@ -7,6 +7,8 @@ interface TravelListFiltersProps {
   onSearchChange: (value: string) => void;
   statusFilter: string;
   onStatusFilterChange: (value: string) => void;
+  urgentOnly: boolean;
+  onUrgentOnlyChange: (value: boolean) => void;
 }
 
 /**
@@ -17,10 +19,12 @@ export function TravelListFilters({
   searchTerm,
   onSearchChange,
   statusFilter,
-  onStatusFilterChange
+  onStatusFilterChange,
+  urgentOnly,
+  onUrgentOnlyChange
 }: TravelListFiltersProps) {
   return (
-    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4">
+    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center">
       <div className="flex-1 relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
         <input
@@ -41,6 +45,18 @@ export function TravelListFilters({
           <option key={s} value={s}>{s}</option>
         ))}
       </select>
+      
+      <label className="flex items-center gap-2 cursor-pointer group whitespace-nowrap">
+        <input
+          type="checkbox"
+          checked={urgentOnly}
+          onChange={(e) => onUrgentOnlyChange(e.target.checked)}
+          className="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500 transition-all cursor-pointer"
+        />
+        <span className="text-sm font-bold text-slate-600 group-hover:text-red-900 transition-colors uppercase tracking-widest text-[10px]">
+          🚨 Somente Urgentes
+        </span>
+      </label>
     </div>
   );
 }

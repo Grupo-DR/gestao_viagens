@@ -34,6 +34,25 @@ export function needsValidation(reason: TravelReason): boolean {
   return REASONS_REQUIRING_CH_VALIDATION.has(reason);
 }
 
+/**
+ * Determina se o motivo da viagem caracteriza SLA curto e urgência.
+ * Regra de negócio pura: Admissão e Demissão possuem prioridade máxima.
+ */
+export function isUrgentReason(reason: TravelReason): boolean {
+  return reason === TravelReason.ADMISSAO || reason === TravelReason.DEMISSAO;
+}
+
+/**
+ * Determina se a solicitação completa é urgente.
+ * Valida a flag manual isUrgent primeiramente. Se não existir, 
+ * usa o fallback de SLA baseados apenas no motivo da viagem.
+ */
+export function isRequestUrgent(request: TravelRequest): boolean {
+  const isUrgentFlag = request.travel?.isUrgent;
+  if (isUrgentFlag === true) return true;
+  return isUrgentReason(request.travel.reason);
+}
+
 // ──────────────────────────────────────────────
 // Transições de status
 // ──────────────────────────────────────────────

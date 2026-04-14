@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { X, Copy, Mail, CheckCircle2 } from 'lucide-react';
 import { TravelRequest, TravelSegment } from '../../domain/types.ts';
-import { getPassengerDisplayName } from '../../domain/travelRequest.rules.ts';
+import { getPassengerDisplayName, isRequestUrgent } from '../../domain/travelRequest.rules.ts';
 import { cn } from '../../lib/utils.ts';
 
 interface ApprovalEmailBoxProps {
@@ -32,7 +32,11 @@ export function ApprovalEmailBox({ request, updatedSegments, onClose }: Approval
     const variation = totalActual - totalBudgeted;
     const variationPercent = totalBudgeted > 0 ? (variation / totalBudgeted) * 100 : 0;
 
-    let text = `Solicitação de De Acordo para Emissão de Passagem\n`;
+    const isUrgent = isRequestUrgent(request);
+
+    let text = isUrgent 
+      ? `[🚨 URGENTE] Solicitação de De Acordo para Emissão de Passagem\n`
+      : `Solicitação de De Acordo para Emissão de Passagem\n`;
     text += `==============================================\n\n`;
     text += `Olá,\n\n`;
     text += `Solicitamos seu "de acordo" para a emissão da passagem abaixo:\n\n`;

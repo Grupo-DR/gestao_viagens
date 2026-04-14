@@ -8,7 +8,8 @@ import {
   canEditRequest, 
   canDeleteRequest, 
   getPassengerDisplayName, 
-  formatRoute 
+  formatRoute,
+  isUrgentReason
 } from '../../domain/travelRequest.rules.ts';
 import { cn } from '../../lib/utils.ts';
 import { UserRole } from '../../domain/enums.ts';
@@ -38,9 +39,13 @@ export function TravelRequestRow({
   
   const departureRaw = request.travel.departureDateTime || request.audit.createdAt;
   const dateObj = new Date(departureRaw);
+  const isUrgent = isUrgentReason(request.travel.reason);
 
   return (
-    <tr className="hover:bg-slate-50/50 transition-colors group">
+    <tr className={cn(
+      "transition-colors group",
+      isUrgent ? "bg-red-50/80 hover:bg-red-100/80" : "hover:bg-slate-50/50"
+    )}>
       <td className="px-6 py-4">
         <div className="font-semibold text-slate-900 leading-tight">{getPassengerDisplayName(request)}</div>
         <div className="text-[11px] text-slate-400 font-bold flex items-center gap-1 mt-1 transition-colors group-hover:text-slate-500">
@@ -49,7 +54,16 @@ export function TravelRequestRow({
         </div>
       </td>
       <td className="px-6 py-4">
-        <span className="text-sm font-medium text-slate-600">{request.travel.reason}</span>
+        <div className="flex flex-col items-start gap-1">
+          <span className={cn("text-sm font-medium", isUrgent ? "text-red-900 font-bold" : "text-slate-600")}>
+            {request.travel.reason}
+          </span>
+          {isUrgent && (
+            <span className="px-2 py-0.5 rounded-md bg-red-100 text-red-700 text-[9px] font-black uppercase tracking-widest border border-red-200 flex items-center gap-1 shadow-sm">
+              🚨 SLA CURTO
+            </span>
+          )}
+        </div>
       </td>
       <td className="px-6 py-4">
         <div className="text-sm text-slate-900 font-bold">

@@ -45,6 +45,7 @@ function buildInitialState(editing: TravelRequest | null): TravelRequestFormData
       justification: '',
       leaveStartDate: '',
       leaveEndDate: '',
+      isUrgent: false,
     };
   }
 
@@ -76,6 +77,7 @@ function buildInitialState(editing: TravelRequest | null): TravelRequestFormData
     justification: editing.travel.justification ?? '',
     leaveStartDate: editing.leavePeriod?.leaveStartDate ?? '',
     leaveEndDate: editing.leavePeriod?.leaveEndDate ?? '',
+    isUrgent: editing.travel.isUrgent ?? false,
   };
 }
 

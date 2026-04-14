@@ -143,6 +143,8 @@ export interface TravelSegment {
 /** Dados do trecho de viagem (Agregador) */
 export interface TravelInfo {
   reason: TravelReason;
+  /** Definido manualmente pelo solicitante no ato do pedido */
+  isUrgent?: boolean;
   /** Lista de trechos ordenada — Fonte de verdade v3 */
   segments?: TravelSegment[];
   /** Snapshot dos trechos originais no momento da compra (para análise Orçado vs Realizado) */
@@ -306,9 +308,9 @@ export interface TravelRequestFormData {
   departureDateTime: string;
   returnDateTime: string;
   baggageRequired: boolean;
-  
   costCenter: string;
   projectCode: string;
+  isUrgent?: boolean;
   managerName: string;
   justification: string;
 

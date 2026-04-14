@@ -22,6 +22,7 @@ service cloud.firestore {
              data.status is string &&
              employeeValid &&
              data.travel.reason is string &&
+             (!data.travel.keys().hasAll(['isUrgent']) || data.travel.isUrgent is bool) &&
              data.audit.createdAt is string;
     }
 
