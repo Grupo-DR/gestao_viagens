@@ -152,8 +152,10 @@ export function TravelList({ view, onEdit, onCreate }: TravelListProps) {
     if (view === 'requester') return 'Minhas Solicitações';
     if (view === 'hr') return 'Fila de Validação CH';
     if (view === 'buyer') return 'Fila de Compras';
+    if (view === 'all' && currentUser?.role === UserRole.GESTOR) return 'Fila do Centro de Custo';
     return 'Todas as Solicitações';
-  }, [view]);
+  }, [view, currentUser?.role]);
+  
 
   // ── Renderização ──
   

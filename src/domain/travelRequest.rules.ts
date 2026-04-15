@@ -98,23 +98,23 @@ export function getAvailableTransitions(
     },
     [RequestStatus.EM_VALIDACAO_CH]: {
       allowed: [RequestStatus.DISPONIVEL_PARA_COMPRA, RequestStatus.REPROVADA, RequestStatus.PENDENTE_CORRECAO],
-      roles: [UserRole.MASTER, UserRole.CAPITAL_HUMANO, UserRole.GESTOR, UserRole.COMPRADOR],
+      roles: [UserRole.MASTER, UserRole.CAPITAL_HUMANO, UserRole.COMPRADOR],
     },
     [RequestStatus.DISPONIVEL_PARA_COMPRA]: {
       allowed: [RequestStatus.EMITIDA, RequestStatus.CANCELADA, RequestStatus.PENDENTE_CORRECAO, RequestStatus.AGUARDANDO_APROVACAO_COMPRA, RequestStatus.EM_PROCESSO_DE_COMPRA],
-      roles: [UserRole.MASTER, UserRole.COMPRADOR, UserRole.GESTOR],
+      roles: [UserRole.MASTER, UserRole.COMPRADOR],
     },
     [RequestStatus.AGUARDANDO_APROVACAO_COMPRA]: {
       allowed: [RequestStatus.EM_PROCESSO_DE_COMPRA, RequestStatus.COMPRA_RECUSADA, RequestStatus.CANCELADA],
-      roles: [UserRole.MASTER, UserRole.GESTOR, UserRole.COMPRADOR],
+      roles: [UserRole.MASTER, UserRole.COMPRADOR],
     },
     [RequestStatus.EM_PROCESSO_DE_COMPRA]: {
       allowed: [RequestStatus.EMITIDA, RequestStatus.CANCELADA],
-      roles: [UserRole.MASTER, UserRole.COMPRADOR, UserRole.GESTOR],
+      roles: [UserRole.MASTER, UserRole.COMPRADOR],
     },
     [RequestStatus.COMPRA_RECUSADA]: {
       allowed: [RequestStatus.CANCELADA],
-      roles: [UserRole.MASTER, UserRole.COMPRADOR, UserRole.GESTOR],
+      roles: [UserRole.MASTER, UserRole.COMPRADOR],
     },
   };
 

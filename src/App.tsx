@@ -15,6 +15,7 @@ import { Dashboard } from './components/Dashboard';
 import { UserManagementPanel } from './components/admin/UserManagementPanel';
 import { EmployeeRayXPanel } from './components/employees/EmployeeRayXPanel';
 import type { TravelRequest } from './domain/types';
+import { UserRole } from './domain/enums';
 
 // ──────────────────────────────────────────────
 // Sub-componente interno: conteúdo com acesso ao contexto
@@ -64,7 +65,7 @@ function AppContent() {
       case 'requests':
         return (
           <TravelList
-            view="requester"
+            view={currentUser?.role === UserRole.GESTOR ? 'all' : 'requester'}
             onEdit={handleEdit}
             onCreate={() => setShowForm(true)}
           />
