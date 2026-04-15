@@ -156,7 +156,9 @@ function buildQuery(view: TravelListView, userId?: string): Query<DocumentData> 
           RequestStatus.APROVADA, 
           RequestStatus.AGUARDANDO_APROVACAO_COMPRA,
           RequestStatus.EM_PROCESSO_DE_COMPRA,
-          RequestStatus.COMPRA_RECUSADA
+          RequestStatus.COMPRA_RECUSADA,
+          RequestStatus.EMITIDA,
+          RequestStatus.CANCELADA
         ]),
         orderBy('audit.createdAt', 'desc')
       );
