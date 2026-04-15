@@ -68,6 +68,7 @@ function AppContent() {
             view={
               currentUser?.role === UserRole.MASTER || 
               currentUser?.role === UserRole.GESTOR ||
+              currentUser?.role === UserRole.ADMINISTRATIVO ||
               currentUser?.role === UserRole.CAPITAL_HUMANO ||
               currentUser?.role === UserRole.COMPRADOR
                 ? 'all' 

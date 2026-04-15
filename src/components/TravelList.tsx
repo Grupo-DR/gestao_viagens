@@ -174,7 +174,7 @@ export function TravelList({ view, onEdit, onCreate }: TravelListProps) {
              </div>
           )}
         </div>
-        {view === 'requester' && (
+        {onCreate && (
           <button
             onClick={onCreate}
             className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center gap-2"
