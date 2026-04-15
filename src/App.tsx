@@ -65,7 +65,14 @@ function AppContent() {
       case 'requests':
         return (
           <TravelList
-            view={currentUser?.role === UserRole.GESTOR ? 'all' : 'requester'}
+            view={
+              currentUser?.role === UserRole.MASTER || 
+              currentUser?.role === UserRole.GESTOR ||
+              currentUser?.role === UserRole.CAPITAL_HUMANO ||
+              currentUser?.role === UserRole.COMPRADOR
+                ? 'all' 
+                : 'requester'
+            }
             onEdit={handleEdit}
             onCreate={() => setShowForm(true)}
           />
