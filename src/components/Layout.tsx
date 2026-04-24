@@ -7,7 +7,7 @@
 import React from 'react';
 import { UserRole } from '../domain/enums';
 import { useIdentity } from '../application/identity/IdentityContext';
-import { Plane, ShieldCheck, ShoppingCart, BarChart3, LogOut, User as UserIcon, Users, Shield } from 'lucide-react';
+import { Plane, ShieldCheck, ShoppingCart, BarChart3, LogOut, User as UserIcon, Users, Shield, DollarSign } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 // ──────────────────────────────────────────────
@@ -49,6 +49,12 @@ const MENU_ITEMS = [
     id: 'usuarios' as const,
     label: 'Gestão de Usuários',
     icon: Shield,
+    roles: [UserRole.MASTER], // Exclusivo MASTER
+  },
+  {
+    id: 'orcamento' as const,
+    label: 'Orçamento',
+    icon: DollarSign,
     roles: [UserRole.MASTER], // Exclusivo MASTER
   },
 ] as const;

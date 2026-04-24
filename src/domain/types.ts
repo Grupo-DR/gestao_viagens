@@ -318,3 +318,32 @@ export interface TravelRequestFormData {
   leaveStartDate: string;
   leaveEndDate: string;
 }
+
+// ──────────────────────────────────────────────
+// Budget — Orçamento Anual por Centro de Custo
+// ──────────────────────────────────────────────
+
+/**
+ * Representa uma linha de orçamento importada da planilha de budget.
+ * Granularidade: Ano × Mês × Centro de Custo × Categoria.
+ * A categoria é derivada da coluna "Descrição":
+ *   "PASSAGENS AÉREAS"      → 'aereo'
+ *   "PASSAGENS TERRESTRES"  → 'rodoviario'
+ */
+export interface TravelBudget {
+  /** ID gerado pelo Firestore (ausente antes do primeiro salvamento) */
+  id?: string;
+  year: number;
+  /** Nome do mês em português — ex: "Janeiro" */
+  month: string;
+  /** Código do Centro de Custo — ex: "3044.01" */
+  costCenter: string;
+  /** Tipo de transporte orçado */
+  category: 'aereo' | 'rodoviario';
+  /** Valor orçado em BRL */
+  value: number;
+  /** ISO 8601 — momento do upload */
+  uploadedAt?: string;
+  /** E-mail do usuário que realizou o upload */
+  uploadedBy?: string;
+}

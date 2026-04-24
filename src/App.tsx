@@ -11,9 +11,10 @@ import { Layout, AppTab } from './components/Layout';
 import { LoginPage } from './components/auth/LoginPage';
 import { TravelForm } from './components/TravelForm';
 import { TravelList } from './components/TravelList';
-import { Dashboard } from './components/Dashboard';
+import { UnifiedDashboard as Dashboard } from './components/UnifiedDashboard';
 import { UserManagementPanel } from './components/admin/UserManagementPanel';
 import { EmployeeRayXPanel } from './components/employees/EmployeeRayXPanel';
+import { BudgetView } from './components/finance/BudgetView';
 import type { TravelRequest } from './domain/types';
 import { UserRole } from './domain/enums';
 
@@ -88,6 +89,8 @@ function AppContent() {
         return <UserManagementPanel />;
       case 'raiox':
         return <EmployeeRayXPanel />;
+      case 'orcamento':
+        return <BudgetView />;
       default:
         return null;
     }
