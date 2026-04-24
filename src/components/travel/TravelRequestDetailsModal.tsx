@@ -338,7 +338,7 @@ export function TravelRequestDetailsModal({
         {/* Footer / Ações Contextuais */}
         <div className="p-8 bg-slate-50/80 border-t border-slate-100 flex flex-col gap-5 shrink-0">
           
-          {(canApproveHR || canBuy) && !showPurchaseForm && (
+          {(canApproveHR || canBuy || canApprovePurchase) && !showPurchaseForm && (
             <div className="space-y-2.5">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Justificativa da Ação</label>
               <textarea
