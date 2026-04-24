@@ -9,7 +9,8 @@ import {
   canDeleteRequest, 
   getPassengerDisplayName, 
   formatRoute,
-  isUrgentReason
+  isUrgentReason,
+  getStatusLabel
 } from '../../domain/travelRequest.rules.ts';
 import { cn } from '../../lib/utils.ts';
 import { UserRole } from '../../domain/enums.ts';
@@ -37,8 +38,7 @@ export function TravelRequestRow({
   const canEdit = canEditRequest(request.status, currentUserRole);
   const canDel = canDeleteRequest(request.status, currentUserRole);
   
-  const departureRaw = request.travel.departureDateTime || request.audit.createdAt;
-  const dateObj = new Date(departureRaw);
+  const dateObj = new Date(request.audit.createdAt);
   const isUrgent = isUrgentReason(request.travel.reason);
 
   return (
@@ -55,11 +55,11 @@ export function TravelRequestRow({
       </td>
       <td className="px-6 py-4">
         <div className="flex flex-col items-start gap-1">
-          <span className={cn("text-sm font-medium", isUrgent ? "text-red-900 font-bold" : "text-slate-600")}>
+          <span className={cn("text-sm whitespace-nowrap", isUrgent ? "text-red-900 font-bold" : "text-slate-600")}>
             {request.travel.reason}
           </span>
           {isUrgent && (
-            <span className="px-2 py-0.5 rounded-md bg-red-100 text-red-700 text-[9px] font-black uppercase tracking-widest border border-red-200 flex items-center gap-1 shadow-sm">
+            <span className="px-2 py-0.5 rounded-md bg-red-100 text-red-700 text-[9px] font-black uppercase tracking-widest border border-red-200 flex items-center gap-1 shadow-sm whitespace-nowrap">
               🚨 SLA CURTO
             </span>
           )}
@@ -75,10 +75,10 @@ export function TravelRequestRow({
       </td>
       <td className="px-6 py-4">
         <span className={cn(
-          'px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm border',
+          'px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm border whitespace-nowrap',
           getStatusColor(request.status)
         )}>
-          {request.status}
+          {getStatusLabel(request.status)}
         </span>
       </td>
       <td className="px-6 py-4 text-right">

@@ -23,6 +23,7 @@ import {
   formatRoute,
   isUrgentReason,
   isRequestUrgent,
+  getStatusLabel
 } from '../domain/travelRequest.rules';
 import type { TravelRequest, HistoryEntry, PurchaseInfo, TravelSegment } from '../domain/types';
 import { useIdentity } from '../application/identity/IdentityContext';
@@ -255,7 +256,7 @@ export function TravelList({ view, onEdit, onCreate }: TravelListProps) {
                   <tr className="bg-slate-50 border-b border-slate-100">
                     <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Passageiro / Rota</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Motivo</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Data Ida</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Data Solicitação</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Ações</th>
                   </tr>
@@ -264,8 +265,7 @@ export function TravelList({ view, onEdit, onCreate }: TravelListProps) {
                   {filteredRequests.map((req) => {
                     const canEdit = canEditRequest(req.status, currentUser.role);
                     const canDel = canDeleteRequest(req.status, currentUser.role);
-                    const departureRaw = req.travel.departureDateTime || req.audit.createdAt;
-                    const dateObj = new Date(departureRaw);
+                    const dateObj = new Date(req.audit.createdAt);
                     const isUrgent = isRequestUrgent(req);
 
                     return (
@@ -293,11 +293,11 @@ export function TravelList({ view, onEdit, onCreate }: TravelListProps) {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-col items-start gap-1">
-                            <span className={cn("text-sm", isUrgent ? "text-red-900 font-bold" : "text-slate-600")}>
+                            <span className={cn("text-sm whitespace-nowrap", isUrgent ? "text-red-900 font-bold" : "text-slate-600")}>
                               {req.travel.reason}
                             </span>
                             {isUrgent && (
-                              <span className="px-2 py-0.5 rounded-md bg-red-100 text-red-700 text-[9px] font-black uppercase tracking-widest border border-red-200 flex items-center gap-1 shadow-sm">
+                              <span className="px-2 py-0.5 rounded-md bg-red-100 text-red-700 text-[9px] font-black uppercase tracking-widest border border-red-200 flex items-center gap-1 shadow-sm whitespace-nowrap">
                                 🚨 SLA CURTO
                               </span>
                             )}
@@ -312,8 +312,8 @@ export function TravelList({ view, onEdit, onCreate }: TravelListProps) {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={cn('px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm', getStatusColor(req.status))}>
-                            {req.status}
+                          <span className={cn('px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm whitespace-nowrap', getStatusColor(req.status))}>
+                            {getStatusLabel(req.status)}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
