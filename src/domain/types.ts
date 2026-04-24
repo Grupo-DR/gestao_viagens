@@ -174,6 +174,7 @@ export interface LeavePeriod {
 }
 
 /** Resultado do processo de validação pelo Capital Humano */
+/** Resultado do processo de validação pelo Capital Humano */
 export interface ValidationInfo {
   validationRequired: boolean;
   validationType?: 'Folga' | 'Férias' | 'Folga + férias';
@@ -192,6 +193,10 @@ export interface PurchaseInfo {
   price?: number;
   notes?: string;
   purchaseStatus: PurchaseStatus;
+  /** ISO 8601 — Data da efetivação da compra */
+  purchasedAt?: string;
+  /** E-mail ou Nome do comprador */
+  purchasedBy?: string;
 }
 
 /** Entrada de histórico de mudanças */

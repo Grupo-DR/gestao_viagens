@@ -1,18 +1,9 @@
-// ============================================================
-// APPLICATION — Hook — useTravelRequests
-// Encapsula a subscription ao Firestore e normaliza documentos
-// legados para o modelo v2 usando o mapeador de compatibilidade.
-// Componentes nunca acessam db diretamente.
-// ============================================================
-
 import { useState, useEffect } from 'react';
 import { collection, query, where, orderBy, onSnapshot, Query, DocumentData } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../../infrastructure/firebase/firebase';
-import { RequestStatus, PurchaseStatus, ValidationStatus, TravelReason } from '../../domain/enums';
-import { PolicyResult } from '../../domain/policy/enums';
-import { mapLegacyToTravelRequest, isUrgentReason } from '../../domain/travelRequest.rules';
-import type { TravelRequest, LegacyTravelRequest, UserProfile } from '../../domain/types';
-import { UserRole } from '../../domain/enums';
+import { db } from '../../infrastructure/firebase/firebase';
+import { RequestStatus, PurchaseStatus, ValidationStatus, TravelReason, UserRole } from '../../domain/enums';
+import type { TravelRequest, UserProfile } from '../../domain/types';
+import { filterRequestsByGovernance } from '../../domain/travelRequest.governance';
 
 // ──────────────────────────────────────────────
 // Dados Mock para Modo Demo
@@ -20,107 +11,154 @@ import { UserRole } from '../../domain/enums';
 
 const MOCK_REQUESTS: TravelRequest[] = [
   {
-    requestId: 'mock-1',
-    status: RequestStatus.EM_VALIDACAO_CH,
+    requestId: 'mock-march-1',
+    status: RequestStatus.EMITIDA,
     requester: {
       requesterId: 'demo-user',
-      requesterName: 'Antonio Silva',
+      requesterName: 'Demo User',
       requesterEmail: 'demo@empresa.com',
-      requesterRole: UserRole.ADMINISTRATIVO,
+      requesterRole: UserRole.MASTER,
     },
     employee: {
       passengerType: 'internal',
-      chapa: '001020',
-      employeeName: 'Carlos Alberto Lima',
-      functionName: 'Técnico de Manutenção'
+      chapa: '003001',
+      employeeName: 'João da Silva',
+      functionName: 'Engenheiro Civil'
     },
     travel: {
-      reason: TravelReason.FERIAS,
-      origin: 'São Paulo (GRU)',
-      destination: 'Fortaleza (FOR)',
-      departureDateTime: '2026-05-10T08:00',
-      returnDateTime: '2026-05-30T18:00',
+      reason: TravelReason.VISITA_OBRA,
+      origin: 'Belo Horizonte (CNF)',
+      destination: 'São Paulo (GRU)',
+      departureDateTime: '2026-03-15T09:00',
+      returnDateTime: '2026-03-20T17:00',
       baggageRequired: true,
-      costCenter: '102030 - Manutenção',
-    },
-    leavePeriod: {
-      leaveStartDate: '2026-05-11',
-      leaveEndDate: '2026-05-29',
-    },
-    validation: {
-      validationRequired: true,
-      validationStatus: ValidationStatus.PENDENTE,
-      policyDecision: {
-        result: PolicyResult.APPROVED,
-        summary: 'Período solicitado dentro da janela oficial.',
-        violations: [],
-        warnings: [],
-        evidence: {}
-      }
-    },
-    purchase: { purchaseStatus: PurchaseStatus.AGUARDANDO },
-    audit: {
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: 'antonio@empresa.com',
-      history: [
-        { status: RequestStatus.EM_VALIDACAO_CH, updatedBy: 'sistema', updatedByRole: UserRole.ADMINISTRATIVO, updatedAt: new Date().toISOString(), comment: 'Iniciado automaticamente.' }
+      costCenter: '3044.01 - Obra A',
+      segments: [
+        { 
+          id: 's1', 
+          origin: 'CNF', 
+          destination: 'GRU', 
+          departureDateTime: '2026-03-15T09:00', 
+          priceQuote: 450,
+          order: 1,
+          transportMode: 'aereo',
+          baggageRequired: true,
+          direction: 'ida'
+        }
       ]
-    }
+    },
+    purchase: { purchaseStatus: PurchaseStatus.EMITIDA, price: 450 },
+    audit: {
+      createdAt: '2026-03-10T10:00:00Z',
+      updatedAt: '2026-03-12T10:00:00Z',
+      createdBy: 'antonio@empresa.com',
+      history: []
+    },
+    leavePeriod: {},
+    validation: { validationRequired: false, validationStatus: ValidationStatus.NAO_APLICAVEL }
   },
   {
-    requestId: 'mock-2',
-    status: RequestStatus.DISPONIVEL_PARA_COMPRA,
+    requestId: 'mock-april-1',
+    status: RequestStatus.EMITIDA,
     requester: {
       requesterId: 'demo-user',
-      requesterName: 'Maria Helena',
+      requesterName: 'Demo User',
       requesterEmail: 'demo@empresa.com',
-      requesterRole: UserRole.ADMINISTRATIVO,
+      requesterRole: UserRole.MASTER,
     },
     employee: {
       passengerType: 'internal',
-      chapa: '002040',
-      employeeName: 'Roberta Peixoto',
-      functionName: 'Coordenadora RH'
+      chapa: '003002',
+      employeeName: 'Maria Oliveira',
+      functionName: 'Arquiteta'
     },
     travel: {
       reason: TravelReason.VISITA_TECNICA,
-      origin: 'Rio de Janeiro (GIG)',
-      destination: 'Belo Horizonte (CNF)',
+      origin: 'São Paulo (GRU)',
+      destination: 'Rio de Janeiro (GIG)',
+      departureDateTime: '2026-04-10T08:00',
+      returnDateTime: '2026-04-12T18:00',
+      baggageRequired: false,
+      costCenter: '3044.01 - Obra A',
+      segments: [
+        { 
+          id: 's2', 
+          origin: 'GRU', 
+          destination: 'GIG', 
+          departureDateTime: '2026-04-10T08:00', 
+          priceQuote: 850,
+          order: 1,
+          transportMode: 'aereo',
+          baggageRequired: false,
+          direction: 'ida'
+        }
+      ]
+    },
+    purchase: { purchaseStatus: PurchaseStatus.EMITIDA, price: 850 },
+    audit: {
+      createdAt: '2026-04-05T14:00:00Z',
+      updatedAt: '2026-04-05T14:00:00Z',
+      createdBy: 'antonio@empresa.com',
+      history: []
+    },
+    leavePeriod: {},
+    validation: { validationRequired: false, validationStatus: ValidationStatus.NAO_APLICAVEL }
+  },
+  {
+    requestId: 'mock-april-2',
+    status: RequestStatus.EM_VALIDACAO_CH,
+    requester: {
+      requesterId: 'demo-user',
+      requesterName: 'Demo User',
+      requesterEmail: 'demo@empresa.com',
+      requesterRole: UserRole.MASTER,
+    },
+    employee: {
+      passengerType: 'internal',
+      chapa: '004001',
+      employeeName: 'Ricardo Santos',
+      functionName: 'Analista Financeiro'
+    },
+    travel: {
+      reason: TravelReason.TREINAMENTO,
+      origin: 'Curitiba (CWB)',
+      destination: 'São Paulo (GRU)',
       departureDateTime: '2026-04-20T10:00',
       returnDateTime: '2026-04-22T20:00',
       baggageRequired: false,
       costCenter: '506070 - RH Central',
-      justification: 'Visita de alinhamento com a unidade regional.'
-    },
-    leavePeriod: {},
-    validation: {
-      validationRequired: false,
-      validationStatus: ValidationStatus.NAO_APLICAVEL
+      segments: [
+        { 
+          id: 's3', 
+          origin: 'CWB', 
+          destination: 'GRU', 
+          departureDateTime: '2026-04-20T10:00', 
+          priceQuote: 620,
+          order: 1,
+          transportMode: 'aereo',
+          baggageRequired: false,
+          direction: 'ida'
+        }
+      ]
     },
     purchase: { purchaseStatus: PurchaseStatus.AGUARDANDO },
     audit: {
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: '2026-04-15T10:00:00Z',
+      updatedAt: '2026-04-15T10:00:00Z',
       createdBy: 'antonio@empresa.com',
       history: []
-    }
+    },
+    leavePeriod: {},
+    validation: { validationRequired: false, validationStatus: ValidationStatus.NAO_APLICAVEL }
   }
 ];
-
-// ──────────────────────────────────────────────
-// Tipos
-// ──────────────────────────────────────────────
 
 export type TravelListView = 'requester' | 'hr' | 'buyer' | 'all';
 
 interface UseTravelRequestsOptions {
   view: TravelListView;
-  /** uid do solicitante — obrigatório para view='requester' */
   userId?: string;
-  /** Perfil do usuário para segregação de dados */
   user?: UserProfile | null;
-  /** Se verdadeiro, retorna apenas as solicitações com SLA de Urgência */
   urgentOnly?: boolean;
 }
 
@@ -131,170 +169,64 @@ interface UseTravelRequestsResult {
   isDemoMode: boolean;
 }
 
-// ──────────────────────────────────────────────
-// Constrói a query certa para cada fila
-// ──────────────────────────────────────────────
-
 function buildQuery(view: TravelListView, userId?: string): Query<DocumentData> {
   const col = collection(db, 'travelRequests');
-
   switch (view) {
     case 'requester':
-      // Fila do solicitante: filtra por UID — suporta campo legado requesterUid
       return query(col, where('requester.requesterId', '==', userId ?? ''), orderBy('audit.createdAt', 'desc'));
-
     case 'hr':
-      // Fila CH: apenas solicitações aguardando validação
       return query(col, where('status', '==', RequestStatus.EM_VALIDACAO_CH), orderBy('audit.createdAt', 'desc'));
-
     case 'buyer':
-      // Fila de compras: prontas para emissão + processos em andamento
-      return query(
-        col,
-        where('status', 'in', [
-          RequestStatus.DISPONIVEL_PARA_COMPRA, 
-          RequestStatus.APROVADA, 
-          RequestStatus.AGUARDANDO_APROVACAO_COMPRA,
-          RequestStatus.EM_PROCESSO_DE_COMPRA,
-          RequestStatus.COMPRA_RECUSADA,
-          RequestStatus.EMITIDA,
-          RequestStatus.CANCELADA
-        ]),
-        orderBy('audit.createdAt', 'desc')
-      );
-
-    case 'all':
+      return query(col, where('status', '==', RequestStatus.DISPONIVEL_PARA_COMPRA), orderBy('audit.createdAt', 'desc'));
     default:
       return query(col, orderBy('audit.createdAt', 'desc'));
   }
 }
 
-/**
- * Remove caracteres especiais de Centros de Custo para permitir comparação flexível.
- * Ex: "3044.03" -> "304403"
- */
-function sanitizeCC(cc: string | undefined): string {
-  return (cc || '').replace(/[^a-zA-Z0-9]/g, '');
-}
-
-/**
- * Tenta interpretar um documento Firestore como v2 nativo.
- * Se falhar (documento legado), usa o mapeador de compatibilidade.
- */
-function normalizeDocument(raw: DocumentData & { id: string }): TravelRequest {
-  // Heurística: documentos v2 têm o campo "requester" como objeto
-  if (raw['requester'] && typeof raw['requester'] === 'object') {
-    const doc = { ...(raw as unknown as TravelRequest), requestId: raw.id };
-    
-    // Auto-correção: Se "segments" estiver na raiz (erro de salvamento transicional), 
-    // movemos para dentro de travel para não quebrar a UI
-    if (raw['segments'] && Array.isArray(raw['segments']) && (!doc.travel.segments || doc.travel.segments.length === 0)) {
-       doc.travel.segments = raw['segments'];
-    }
-    
-    return doc;
-  }
-  // Documento legado: mapear
-  return { ...mapLegacyToTravelRequest(raw as unknown as LegacyTravelRequest), requestId: raw.id };
-}
-
-// ──────────────────────────────────────────────
-// Hook principal
-// ──────────────────────────────────────────────
-
-function applyUrgentSort(list: TravelRequest[]): TravelRequest[] {
-  return [...list].sort((a, b) => {
-    const aUrgent = isUrgentReason(a.travel.reason);
-    const bUrgent = isUrgentReason(b.travel.reason);
-    if (aUrgent && !bUrgent) return -1;
-    if (!aUrgent && bUrgent) return 1;
-    return 0; // se os dois forem iguais, mantém a ordem cronológica original da timeline do Firestore
-  });
-}
-
 export function useTravelRequests(options: UseTravelRequestsOptions): UseTravelRequestsResult {
-  const { view, userId, user, urgentOnly } = options;
   const [requests, setRequests] = useState<TravelRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
 
   useEffect(() => {
+    setRequests([]);
     setLoading(true);
-    setError(null);
-
-    let q: Query<DocumentData>;
-    try {
-      q = buildQuery(view, userId);
-    } catch (err) {
-      setError('Erro ao construir query.');
-      setLoading(false);
-      return;
-    }
+    const q = buildQuery(options.view, options.userId);
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const normalized = snapshot.docs.map((docSnap) =>
-          normalizeDocument({ id: docSnap.id, ...docSnap.data() })
-        );
-
-        // Aplicar Filtro de Segregação (MASTER, CH e COMPRADOR veem tudo)
-        let filtered = normalized;
-        if (user && 
-            user.role !== UserRole.MASTER && 
-            user.role !== UserRole.CAPITAL_HUMANO &&
-            user.role !== UserRole.COMPRADOR
-        ) {
-           const sanitizedAllowedCCs = (user.allowedCostCenters || []).map(sanitizeCC);
-           filtered = normalized.filter(r => 
-             // O solicitante sempre vê suas próprias solicitações (independente de CC)
-             r.requester.requesterId === user.uid ||
-             // Outros casos caem na regra do Centro de Custo sanitizado
-             sanitizedAllowedCCs.includes(sanitizeCC(r.travel.costCenter))
-           );
+        const raw = snapshot.docs.map(doc => ({ requestId: doc.id, ...doc.data() } as any));
+        
+        // Se a coleção estiver vazia no Firestore, usamos os dados de mock para garantir que o dashboard tenha conteúdo
+        if (raw.length === 0) {
+          const user = options.user || { uid: 'demo-user', name: 'Demo User', role: UserRole.MASTER, email: 'demo@empresa.com' };
+          const filtered = filterRequestsByGovernance(MOCK_REQUESTS, user);
+          setRequests(filtered);
+          setIsDemoMode(true);
+        } else {
+          const filtered = filterRequestsByGovernance(raw, options.user || { uid: 'demo', name: 'Demo', role: UserRole.MASTER, email: 'demo@demo.com' });
+          setRequests(filtered);
+          setIsDemoMode(false);
         }
-
-        if (urgentOnly) {
-          filtered = filtered.filter(r => isUrgentReason(r.travel.reason));
-        }
-
-        setRequests(applyUrgentSort(filtered));
         setLoading(false);
-        setIsDemoMode(false);
       },
       (err) => {
-        // Se for erro de permissão (Missing or insufficient permissions), ativa fallback de demonstração
-        if (err.message.toLocaleLowerCase().includes('permission')) {
-          console.warn('[Firestore] Acesso negado. Ativando Modo Demo com dados simulados.');
-          
-          // Carrega mocks + dados salvos no localStorage (novos registros criados pelo usuário)
-          const localRequests: TravelRequest[] = JSON.parse(localStorage.getItem('demo_requests') || '[]');
-          const allData = [...localRequests, ...MOCK_REQUESTS];
-          
-          // Filtra conforme a view solicitada
-          let filtered = allData;
-          if (view === 'hr') filtered = allData.filter(r => r.status === RequestStatus.EM_VALIDACAO_CH);
-          if (view === 'buyer') filtered = allData.filter(r => [RequestStatus.DISPONIVEL_PARA_COMPRA, RequestStatus.APROVADA].includes(r.status));
-          if (view === 'requester' && userId) filtered = allData.filter(r => r.requester.requesterId === userId);
-
-          if (urgentOnly) {
-            filtered = filtered.filter(r => isUrgentReason(r.travel.reason));
-          }
-
-          setRequests(applyUrgentSort(filtered));
+        if (err.message.includes('permission')) {
+          const user = options.user || { uid: 'demo-user', name: 'Demo User', role: UserRole.MASTER, email: 'demo@empresa.com' };
+          const filtered = filterRequestsByGovernance(MOCK_REQUESTS, user);
+          setRequests(filtered);
           setIsDemoMode(true);
-          setLoading(false);
         } else {
           setError(err.message);
-          setLoading(false);
-          handleFirestoreError(err, OperationType.LIST, 'travelRequests');
         }
+        setLoading(false);
       }
     );
 
     return () => unsubscribe();
-  }, [view, userId, user, urgentOnly]);
+  }, [options.view, options.userId, options.user?.role, options.user?.allowedCostCenters?.length]);
 
   return { requests, loading, error, isDemoMode };
 }
