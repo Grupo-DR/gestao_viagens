@@ -148,10 +148,32 @@ export function TravelRequestDetailsModal({
               </div>
               <div>
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Motivo da Viagem</label>
-                <p className="text-xs font-bold text-slate-700">{request.travel.reason}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-bold text-slate-700">{request.travel.reason}</p>
+                  {request.travel.isUrgent && (
+                    <span className="bg-red-100 text-red-600 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-tighter">Urgente</span>
+                  )}
+                </div>
               </div>
             </div>
           </section>
+
+          {/* 2. JUSTIFICATIVA DO SOLICITANTE */}
+          {request.travel.justification && (
+            <section className="space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="w-1.5 h-6 bg-slate-900 rounded-full" />
+                <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest italic">Observações do Solicitante</h4>
+              </div>
+              <div className="pl-4">
+                <div className="bg-slate-50/50 p-5 rounded-[28px] border border-slate-100">
+                  <p className="text-sm text-slate-600 font-semibold leading-relaxed whitespace-pre-wrap italic">
+                    "{request.travel.justification}"
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
 
           {/* 3. TÓPICO: ITINERÁRIO DE IDA */}
           <section className="space-y-6">
@@ -171,14 +193,23 @@ export function TravelRequestDetailsModal({
                         </div>
                         <div className="flex-1">
                           <p className="text-xs font-bold text-slate-800">{seg.origin} → {seg.destination}</p>
-                          <div className="flex items-center gap-3 mt-1">
-                             <div className="flex items-center gap-1">
-                               {seg.transportMode === 'aereo' ? <Plane className="w-3 h-3 text-blue-500" /> : <Bus className="w-3 h-3 text-emerald-500" />}
-                               <span className="text-[9px] font-bold text-slate-400 uppercase">{seg.transportMode}</span>
-                             </div>
-                             <span className="text-[9px] font-bold text-slate-300">|</span>
-                             <p className="text-[9px] text-slate-400 font-bold uppercase">{seg.originTerminal}</p>
-                          </div>
+                            <div className="flex items-center gap-3 mt-1">
+                               <div className="flex items-center gap-1">
+                                 {seg.transportMode === 'aereo' ? <Plane className="w-3 h-3 text-blue-500" /> : <Bus className="w-3 h-3 text-emerald-500" />}
+                                 <span className="text-[9px] font-bold text-slate-400 uppercase">{seg.transportMode}</span>
+                               </div>
+                               <span className="text-[9px] font-bold text-slate-300">|</span>
+                               <p className="text-[9px] text-slate-400 font-bold uppercase">{seg.originTerminal}</p>
+                               {seg.baggageRequired && (
+                                 <>
+                                   <span className="text-[9px] font-bold text-slate-300">|</span>
+                                   <div className="flex items-center gap-1 text-indigo-500">
+                                      <Luggage className="w-3 h-3" />
+                                      <span className="text-[9px] font-black uppercase tracking-tighter">C/ Bagagem</span>
+                                   </div>
+                                 </>
+                               )}
+                            </div>
                         </div>
                       </div>
                       
@@ -226,6 +257,15 @@ export function TravelRequestDetailsModal({
                                </div>
                                <span className="text-[9px] font-bold text-slate-300">|</span>
                                <p className="text-[9px] text-slate-400 font-bold uppercase">{seg.originTerminal}</p>
+                               {seg.baggageRequired && (
+                                 <>
+                                   <span className="text-[9px] font-bold text-slate-300">|</span>
+                                   <div className="flex items-center gap-1 text-indigo-500">
+                                      <Luggage className="w-3 h-3" />
+                                      <span className="text-[9px] font-black uppercase tracking-tighter">C/ Bagagem</span>
+                                   </div>
+                                 </>
+                               )}
                             </div>
                           </div>
                         </div>
