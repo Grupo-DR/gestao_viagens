@@ -17,20 +17,42 @@ export type FinancialStatus = 'healthy' | 'attention' | 'critical' | 'no_budget'
 // Centro de Custo
 // ──────────────────────────────────────────────
 
+/** 
+ * Mapa de apelidos para códigos oficiais. 
+ * Resolve casos onde a solicitação vem apenas com texto (ex: "COMERCIAL").
+ */
+const COST_CENTER_ALIASES: Record<string, string> = {
+  'COMERCIAL': '103.01',
+  'ATIVOS': '3000.01',
+  'RH': '104.01',
+  'TI': '101.04',
+  'SUPRIMENTOS': '106.01',
+};
+
 /**
  * Extrai a chave técnica normalizada de um centro de custo.
- * Remove tudo exceto os dígitos do prefixo numérico.
- *
- * @example
- * getCostCenterKey("3019.03 MANUT. INFRA") // "301903"
- * getCostCenterKey("3019.03")              // "301903"
- * getCostCenterKey(undefined)              // ""
+ * Se houver números, extrai apenas os dígitos. 
+ * Se for apenas texto, verifica o mapa de apelidos ou retorna o texto normalizado.
  */
 export function getCostCenterKey(value?: string): string {
   if (!value) return '';
-  const match = value.match(/^[\d.]+/);
-  const code = match ? match[0] : value;
-  return code.replace(/[^0-9]/g, '');
+  
+  const trimmed = value.trim();
+  const upper = trimmed.toUpperCase();
+
+  // 1. Verifica se é um apelido conhecido
+  if (COST_CENTER_ALIASES[upper]) {
+    return COST_CENTER_ALIASES[upper].replace(/[^0-9]/g, '');
+  }
+
+  // 2. Tenta extrair o padrão numérico (ex: "3019.03")
+  const match = trimmed.match(/^[\d.]+/);
+  if (match) {
+    return match[0].replace(/[^0-9]/g, '');
+  }
+
+  // 3. Fallback para texto puro (ex: "OBRA NOVA")
+  return upper.replace(/[\s-]/g, '');
 }
 
 /**
