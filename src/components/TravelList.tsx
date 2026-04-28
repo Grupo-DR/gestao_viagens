@@ -90,7 +90,12 @@ export function TravelList({ view, onEdit, onCreate }: TravelListProps) {
     return requests.filter((r) => {
       // Filtro específico para o Comprador (Abas de Pendentes vs Histórico)
       if (view === 'buyer') {
-        const isCompleted = r.status === RequestStatus.EMITIDA || r.status === RequestStatus.CANCELADA;
+        const completedBuyerStatuses = [
+          RequestStatus.EMITIDA,
+          RequestStatus.CANCELADA,
+          RequestStatus.CONCLUIDA,
+        ];
+        const isCompleted = completedBuyerStatuses.includes(r.status);
         if (buyerTab === 'pending' && isCompleted) return false;
         if (buyerTab === 'completed' && !isCompleted) return false;
       }

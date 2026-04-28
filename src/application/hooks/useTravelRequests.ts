@@ -177,7 +177,16 @@ function buildQuery(view: TravelListView, userId?: string): Query<DocumentData> 
     case 'hr':
       return query(col, where('status', '==', RequestStatus.EM_VALIDACAO_CH), orderBy('audit.createdAt', 'desc'));
     case 'buyer':
-      return query(col, where('status', '==', RequestStatus.DISPONIVEL_PARA_COMPRA), orderBy('audit.createdAt', 'desc'));
+      return query(
+        col, 
+        where('status', 'in', [
+          RequestStatus.DISPONIVEL_PARA_COMPRA, 
+          RequestStatus.EMITIDA, 
+          RequestStatus.CANCELADA,
+          RequestStatus.CONCLUIDA
+        ]), 
+        orderBy('audit.createdAt', 'desc')
+      );
     default:
       return query(col, orderBy('audit.createdAt', 'desc'));
   }
