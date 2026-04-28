@@ -1,0 +1,69 @@
+// ============================================================
+// DOMAIN — Financial — Cost Center Dictionary
+// Dicionário estático de nomes de Centro de Custo para padronização.
+// Fonte: Tabela consolidada da DR Construtora.
+// ============================================================
+
+import { getCostCenterKey } from './financialOverviewRules';
+
+export const COST_CENTER_DICTIONARY: Record<string, string> = {
+  '101.01': '101.01 - ADM / FIN / CONTAB / LIMP / RECEPCAO',
+  '103.01': '103.01 - COMERCIAL',
+  '104.01': '104.01 - ADM PESSOAL / DESENV ORGANIZACIONAL',
+  '105.01': '105.01 - SEGURANÇA DO TRABALHO',
+  '106.01': '106.01 - SUPRIMENTOS',
+  '101.04': '101.04 - TECNOLOGIA DA INFORMACAO',
+  '3000.01': '3000.01 - ATIVOS',
+  '3012.01': '3012.01 - RUMO OP.SUL INFRA RS/SC',
+  '3015.02': '3015.02 - VLI - ESTRADAS VICINAIS - MAN PREV, COR',
+  '3015.03': '3015.03 - SER E LOC DE EQUIP COR. CENTRO-NORTE VL',
+  '3017.01': '3017.01 - CONSORCIO PRUMO - DR',
+  '3018.01': '3018.01 - MODERNIZACAO E LIMPEZA DE LASTRO - RUMO',
+  '3018.02': '3018.02 - OP.NORTE INFRA CONTR CW41632',
+  '3018.04': '3018.04 - PATRULHAS FIXAS RUMO',
+  '3018.05': '3018.05 - MODERNIZACAO E LIMPEZA DE LASTRO',
+  '3018.06': '3018.06 - MANUT. INFRA NORTE ZEV - ZBV',
+  '3019.01': '3019.01 - OP.NORTE M. ZERO X ARARAQ CW41635',
+  '3019.02': '3019.02 - EXEC DE OBRAS DE CAPACITACAO SP - RUMO',
+  '3019.03': '3019.03 - MANUT. INFRA NORTE ZAR – TMI',
+  '3025.01': '3025.01 - CONSORCIO PRDR',
+  '3027.01': '3027.01 - VL! TC IBAMA',
+  '3028.01': '3028.01 - INFRA ESTRUTURA - GERDAU S/A',
+  '3030.01': '3030.01 - RUMO ACESSOS - PROGRAMA PBA INDIGENA',
+  '3030.02': '3030.02 - ALDEIA INDIGENA TEKOA - RUMO',
+  '3031.01': '3031.01 - VLI DRENAGEM E PAVIMENTACAO TIPLAM',
+  '3036.01': '3036.01 - CONSTRUCAO DE PNS E CERCAS – TRECHO 03',
+  '3037.01': '3037.01 - CTM - SOCADORA',
+  '3037.02': '3037.02 - SERV CORRECAO GEOMETRICA SOCADORA - RUMO',
+  '3037.03': '3037.03 - LOCACAO SOCADORA E REGULADORA - VL!',
+  '3038.01': '3038.01 - MANUTENCAO DE FORNOS TMA - GERDAU',
+  '3038.02': '3038.02 - SERVICOS EXTRAS TMA',
+  '3039.01': '3039.01 - OBRA VLI - PATIOS - ORLANDIA/CASA BRANCA',
+  '3040.01': '3040.01 - AMV’S PATIO SANTA ISABEL/GO - CBA',
+  '3041.01': '3041.01 - RUMO - OBRAS DE EXTENSAO',
+  '3042.01': '3042.01 - OBRAS DE PAVIMENT TERM RONDONOPOLIS/MT',
+  '3042.02': '3042.02 - OBRAS DE PAVIMENT TERM RONDONOPOLIS/MT',
+  '3043.01': '3043.01 - CONSORCIO PERA FERREA',
+  '3043.02': '3043.02 - CONSORCIO PERA FERREA',
+  '3044.01': '3044.01 - MODERNIZACAO E LIMP LASTRO - ARARAQUARA',
+  '3044.02': '3044.02 - INFRANORTE - ARARAQUARA',
+  '3045.01': '3045.01 - RUMO PATIO CATANDUVA - CATIGUA',
+  '3044.03': '3044.03 - LIMPEZA DE LASTRO ZMA/ZDZ',
+};
+
+// Mapa normalizado (chave técnica -> label) para busca em O(1)
+const NORMALIZED_DICTIONARY: Record<string, string> = {};
+
+Object.entries(COST_CENTER_DICTIONARY).forEach(([code, label]) => {
+  const key = getCostCenterKey(code);
+  if (key) {
+    NORMALIZED_DICTIONARY[key] = label;
+  }
+});
+
+/**
+ * Busca o label oficial no dicionário estático.
+ */
+export function getStaticCostCenterLabel(ccKey: string): string | null {
+  return NORMALIZED_DICTIONARY[ccKey] || null;
+}

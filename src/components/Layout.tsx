@@ -192,8 +192,8 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
       </aside>
 
       {/* ─── Conteúdo principal ─── */}
-      <main className="flex-1 ml-64 p-8">
-        <div className="max-w-6xl mx-auto">{children}</div>
+      <main className="flex-1 ml-64 p-4">
+        <div className="max-w-[1600px]">{children}</div>
       </main>
     </div>
   );

@@ -8,14 +8,14 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { db } from '../../infrastructure/firebase/firebase';
-import { Budget } from '../../domain/budget/types';
+import type { TravelBudget } from '../../domain/types';
 
 // ──────────────────────────────────────────────
 // Tipos
 // ──────────────────────────────────────────────
 
 interface UseTravelBudgetsResult {
-  budgets: Budget[];
+  budgets: TravelBudget[];
   loading: boolean;
   error: string | null;
   isDemoMode: boolean;
@@ -25,53 +25,67 @@ interface UseTravelBudgetsResult {
 // Helpers
 // ──────────────────────────────────────────────
 
-const MONTH_MAP: Record<string, string> = {
-  'janeiro': '01', 'fevereiro': '02', 'março': '03', 'abril': '04',
-  'maio': '05', 'junho': '06', 'julho': '07', 'agosto': '08',
-  'setembro': '09', 'outubro': '10', 'novembro': '11', 'dezembro': '12'
-};
+function parseNumber(raw: unknown): number {
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : 0;
 
-function loadDemoBudgets(): Budget[] {
+  if (typeof raw === 'string') {
+    const cleaned = raw
+      .replace(/[R$\s]/g, '')
+      .replace(/\./g, '')
+      .replace(',', '.');
+
+    const parsed = Number.parseFloat(cleaned);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
+
+function normalizeDocument(raw: Record<string, unknown> & { id: string }): TravelBudget {
+  return {
+    id: raw.id,
+    year: Number(raw.year ?? 0),
+    month: String(raw.month ?? '').trim(),
+    costCenter: String(raw.costCenter ?? '').trim(),
+    category: raw.category === 'aereo' ? 'aereo' : 'rodoviario',
+    value: parseNumber(raw.value),
+    uploadedAt: (raw.uploadedAt as string) || new Date().toISOString(),
+    uploadedBy: (raw.uploadedBy as string) || 'system',
+  };
+}
+
+function loadDemoBudgets(): TravelBudget[] {
   const stored = localStorage.getItem('demo_budgets');
-  if (stored) return JSON.parse(stored);
-  
-  // Budgets default para demonstração
+
+  if (stored) {
+    const parsed = JSON.parse(stored) as Array<Record<string, unknown> & { id?: string }>;
+    return parsed.map((item, index) =>
+      normalizeDocument({ id: item.id ?? `demo-budget-${index}`, ...item })
+    );
+  }
+
   return [
     {
       id: 'budget-1',
-      period: '2026-03',
+      year: 2026,
+      month: 'Março',
       costCenter: '3044.01 - Obra A',
-      amount: 5000,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: 'admin'
+      category: 'rodoviario',
+      value: 5000,
+      uploadedAt: new Date().toISOString(),
+      uploadedBy: 'admin',
     },
     {
       id: 'budget-2',
-      period: '2026-04',
+      year: 2026,
+      month: 'Abril',
       costCenter: '506070 - RH Central',
-      amount: 3500,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: 'admin'
-    }
+      category: 'rodoviario',
+      value: 3500,
+      uploadedAt: new Date().toISOString(),
+      uploadedBy: 'admin',
+    },
   ];
-}
-
-function normalizeDocument(raw: Record<string, unknown> & { id: string }): Budget {
-  const year = Number(raw['year']);
-  const monthName = String(raw['month']).toLowerCase();
-  const monthNum = MONTH_MAP[monthName] || '01';
-  
-  return {
-    id: raw.id,
-    period: `${year}-${monthNum}`,
-    costCenter: String(raw['costCenter']),
-    amount: Number(raw['value']),
-    createdAt: (raw['uploadedAt'] as string) || new Date().toISOString(),
-    updatedAt: (raw['uploadedAt'] as string) || new Date().toISOString(),
-    createdBy: (raw['uploadedBy'] as string) || 'system',
-  };
 }
 
 // ──────────────────────────────────────────────
@@ -83,7 +97,7 @@ function normalizeDocument(raw: Record<string, unknown> & { id: string }): Budge
  * Ativa modo demo automaticamente em caso de erro de permissão.
  */
 export function useTravelBudgets(): UseTravelBudgetsResult {
-  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [budgets, setBudgets] = useState<TravelBudget[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);

@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useTravelRequests } from '../application/hooks/useTravelRequests';
 import { useTravelBudgets } from '../application/hooks/useTravelBudgets';
 import { useIdentity } from '../application/identity/IdentityContext';
-import { RequestStatus } from '../domain/enums';
+import { RequestStatus, UserRole } from '../domain/enums';
 import { 
   computeBudgetComparison, 
   consolidateByCostCenter,
@@ -155,7 +155,16 @@ import { FinancialDashboard } from './dashboard/FinancialDashboard';
 // ──────────────────────────────────────────────
 
 export function UnifiedDashboard() {
-  const [activeTab, setActiveTab] = useState<'operacional' | 'financeiro'>('operacional');
+  const { currentUser } = useIdentity();
+  const userRole = currentUser?.role;
+
+  const canSeeOperational = 
+    userRole === UserRole.MASTER || 
+    userRole === UserRole.CAPITAL_HUMANO;
+
+  const [activeTab, setActiveTab] = useState<'operacional' | 'financeiro'>(
+    canSeeOperational ? 'operacional' : 'financeiro'
+  );
 
   return (
     <div className="space-y-8">
@@ -173,33 +182,35 @@ export function UnifiedDashboard() {
           </div>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="flex bg-white p-1.5 rounded-2xl border border-slate-100 shadow-sm w-fit">
-          <button
-            onClick={() => setActiveTab('operacional')}
-            className={cn(
-              "flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-              activeTab === 'operacional' 
-                ? "bg-indigo-600 text-white shadow-md shadow-indigo-100" 
-                : "text-slate-400 hover:text-slate-600"
-            )}
-          >
-            <Activity className="w-4 h-4" />
-            Visão Operacional
-          </button>
-          <button
-            onClick={() => setActiveTab('financeiro')}
-            className={cn(
-              "flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-              activeTab === 'financeiro' 
-                ? "bg-indigo-600 text-white shadow-md shadow-indigo-100" 
-                : "text-slate-400 hover:text-slate-600"
-            )}
-          >
-            <DollarSign className="w-4 h-4" />
-            Visão Financeira
-          </button>
-        </div>
+        {/* Tab Switcher - Apenas exibido se o usuário puder ver ambas as abas */}
+        {canSeeOperational && (
+          <div className="flex bg-white p-1.5 rounded-2xl border border-slate-100 shadow-sm w-fit">
+            <button
+              onClick={() => setActiveTab('operacional')}
+              className={cn(
+                "flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                activeTab === 'operacional' 
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-100" 
+                  : "text-slate-400 hover:text-slate-600"
+              )}
+            >
+              <Activity className="w-4 h-4" />
+              Visão Operacional
+            </button>
+            <button
+              onClick={() => setActiveTab('financeiro')}
+              className={cn(
+                "flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                activeTab === 'financeiro' 
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-100" 
+                  : "text-slate-400 hover:text-slate-600"
+              )}
+            >
+              <DollarSign className="w-4 h-4" />
+              Visão Financeira
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Conteúdo das Abas */}

@@ -1,5 +1,4 @@
-import { TravelRequest, UserProfile } from '../../domain/types';
-import { Budget } from '../../domain/budget/types';
+import { TravelRequest, TravelBudget } from '../../domain/types';
 import { RequestStatus } from '../../domain/enums';
 import { sanitizeCC } from '../../domain/travelRequest.governance';
 import { 
@@ -73,39 +72,70 @@ export type FinancialDashboardData = {
   budgetVsRealizedByCostCenter: BudgetVsRealizedByCostCenterRow[];
 };
 
+const MONTH_NAME_TO_NUMBER: Record<string, number> = {
+  janeiro: 1,
+  fevereiro: 2,
+  marco: 3,
+  março: 3,
+  abril: 4,
+  maio: 5,
+  junho: 6,
+  julho: 7,
+  agosto: 8,
+  setembro: 9,
+  outubro: 10,
+  novembro: 11,
+  dezembro: 12,
+};
+
+function normalizeText(value?: string): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+function getBudgetMonthNumber(month: string): number {
+  return MONTH_NAME_TO_NUMBER[normalizeText(month)] ?? 0;
+}
+
 export function buildFinancialDashboard(
   requests: TravelRequest[],
-  budgets: Budget[],
+  budgets: TravelBudget[],
   filters: FinancialFilters,
   allowedCostCenters: string[]
 ): FinancialDashboardData {
   
   // 1. Governança e Filtros
-  const periodKey = `${filters.year}-${filters.month.toString().padStart(2, '0')}`;
+  const allowedKeys = allowedCostCenters.map(sanitizeCC);
   
   const filteredRequests = requests.filter(r => {
     const date = new Date(r.audit.createdAt);
     if (date.getFullYear() !== filters.year || (date.getMonth() + 1) !== filters.month) return false;
     
-    const isCCAllowed = allowedCostCenters.length === 0 || 
-                       allowedCostCenters.map(sanitizeCC).includes(sanitizeCC(r.travel.costCenter));
+    const requestCCKey = sanitizeCC(r.travel.costCenter);
+    const isCCAllowed = allowedKeys.length === 0 || allowedKeys.includes(requestCCKey);
     if (!isCCAllowed) return false;
 
-    if (filters.costCenter && r.travel.costCenter !== filters.costCenter) return false;
+    if (filters.costCenter && requestCCKey !== sanitizeCC(filters.costCenter)) return false;
     return true;
   });
 
   const filteredBudgets = budgets.filter(b => {
-    if (b.period !== periodKey) return false;
-    const isCCAllowed = allowedCostCenters.length === 0 || 
-                       allowedCostCenters.map(sanitizeCC).includes(sanitizeCC(b.costCenter));
+    if (b.year !== filters.year) return false;
+    if (getBudgetMonthNumber(b.month) !== filters.month) return false;
+
+    const budgetCCKey = sanitizeCC(b.costCenter);
+    const isCCAllowed = allowedKeys.length === 0 || allowedKeys.includes(budgetCCKey);
     if (!isCCAllowed) return false;
-    if (filters.costCenter && b.costCenter !== filters.costCenter) return false;
+
+    if (filters.costCenter && budgetCCKey !== sanitizeCC(filters.costCenter)) return false;
     return true;
   });
 
   // 2. Agregações Base
-  const totalBudget = filteredBudgets.reduce((acc, b) => acc + b.amount, 0) || null;
+  const totalBudget = filteredBudgets.reduce((acc, b) => acc + (Number(b.value) || 0), 0) || null;
   const realizedAmounts = filteredRequests.map(r => calculateRealizedAmount(r)).filter(a => a !== null) as number[];
   const totalRealized = realizedAmounts.reduce((acc, a) => acc + a, 0) || null;
 
@@ -186,15 +216,24 @@ export function buildFinancialDashboard(
 
   // Inicia com orçamentos
   filteredBudgets.forEach(b => {
-    ccMap.set(b.costCenter, {
-      costCenter: b.costCenter,
-      budgetAmount: b.amount,
-      airRealizedAmount: 0,
-      groundRealizedAmount: 0,
-      totalRealizedAmount: 0,
-      deltaAmount: b.amount,
-      hasRealizedWithoutBudget: false
-    });
+    const ccKey = sanitizeCC(b.costCenter);
+    const budgetValue = Number(b.value) || 0;
+    const existing = ccMap.get(ccKey);
+
+    if (!existing) {
+      ccMap.set(ccKey, {
+        costCenter: b.costCenter,
+        budgetAmount: budgetValue,
+        airRealizedAmount: 0,
+        groundRealizedAmount: 0,
+        totalRealizedAmount: 0,
+        deltaAmount: budgetValue,
+        hasRealizedWithoutBudget: false
+      });
+    } else {
+      existing.budgetAmount = (existing.budgetAmount || 0) + budgetValue;
+      existing.deltaAmount = (existing.budgetAmount || 0) - (existing.totalRealizedAmount || 0);
+    }
   });
 
   // Agrega realizados
@@ -202,11 +241,12 @@ export function buildFinancialDashboard(
     const amount = calculateRealizedAmount(r);
     if (amount === null) return;
 
-    const cc = r.travel.costCenter;
-    let row = ccMap.get(cc);
+    const ccKey = sanitizeCC(r.travel.costCenter);
+    let row = ccMap.get(ccKey);
+    
     if (!row) {
       row = {
-        costCenter: cc,
+        costCenter: r.travel.costCenter,
         budgetAmount: null,
         airRealizedAmount: 0,
         groundRealizedAmount: 0,
@@ -214,7 +254,7 @@ export function buildFinancialDashboard(
         deltaAmount: 0,
         hasRealizedWithoutBudget: true
       };
-      ccMap.set(cc, row);
+      ccMap.set(ccKey, row);
     }
 
     const logType = classifyLogisticsType(r);
@@ -223,6 +263,7 @@ export function buildFinancialDashboard(
 
     row.totalRealizedAmount = (row.totalRealizedAmount || 0) + amount;
     row.deltaAmount = (row.budgetAmount || 0) - row.totalRealizedAmount;
+    row.hasRealizedWithoutBudget = !row.budgetAmount || row.budgetAmount <= 0;
   });
 
   const tableRows = Array.from(ccMap.values()).sort((a, b) => {
