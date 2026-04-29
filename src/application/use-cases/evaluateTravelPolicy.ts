@@ -47,24 +47,35 @@ export function evaluateTravelPolicy(
   // 2. Validação Geográfica (Destino vs Residência) - Independente
   const homeCity = integrationData?.masterData?.homeCity || integrationData?.rawVacation?.CIDADE || '';
   
-  // Pega o último destino de IDA do itinerário
-  const lastIda = [...segments]
-    .filter(s => s.direction === 'ida' && s.destination)
-    .sort((a, b) => (a.order || 0) - (b.order || 0))
-    .pop();
+  // Seleção Robusta de Segmento de Referência (Destino Final)
+  const orderedSegments = [...segments]
+    .filter(s => s.destination)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  const lastIda = orderedSegments.filter(s => s.direction === 'ida').pop();
+  const firstVolta = orderedSegments.filter(s => s.direction === 'volta').shift();
+  
+  // Prioridade: Última Ida > Primeira Volta > Primeiro disponível
+  const referenceSegment = lastIda ?? firstVolta ?? orderedSegments[0] ?? null;
+  const destinationCity = referenceSegment?.destination ?? null;
 
   let geoDecision: PolicyDecision;
 
-  if (homeCity && lastIda && lastIda.destination) {
-    geoDecision = PolicyEngine.evaluateGeographicMatch(homeCity, lastIda.destination);
+  if (homeCity && destinationCity) {
+    geoDecision = PolicyEngine.evaluateGeographicMatch(homeCity, destinationCity);
   } else {
     // Resultado neutro se dados insuficientes para validar destino
     geoDecision = {
-      result: PolicyResult.MANUAL_VALIDATION, // Alterado para evitar o "APPROVED" falso
+      result: PolicyResult.MANUAL_VALIDATION,
       violations: [],
       warnings: [],
-      evidence: { homeCity, destinationCity: lastIda?.destination },
-      summary: 'Aguardando preenchimento do destino final.',
+      evidence: { 
+        homeCity: homeCity || null, 
+        destinationCity: destinationCity || null 
+      },
+      summary: destinationCity 
+        ? 'Aguardando dados de residência do colaborador para validar destino.'
+        : 'Aguardando preenchimento do destino final.',
     };
   }
 

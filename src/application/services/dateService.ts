@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { TravelReason } from '../../domain/enums.ts';
 import { deriveTravelSummaryFromSegments } from '../../domain/travelSegment.helpers.ts';
 import type { TravelRequestFormData } from '../../domain/types.ts';
@@ -48,5 +49,21 @@ export const dateService = {
       startDate: departureDate,
       endDate: returnDate || departureDate // Fallback se não houver retorno
     };
+  },
+
+  /**
+   * Formata data/hora de forma segura para a UI.
+   * Evita RangeError: Invalid time value.
+   */
+  formatDateTimeSafe(value?: string | null, formatStr: string = 'dd/MM/yyyy HH:mm'): string {
+    if (!value) return '—';
+    try {
+      const date = new Date(value);
+      if (isNaN(date.getTime())) return '—';
+      
+      return format(date, formatStr);
+    } catch (e) {
+      return '—';
+    }
   }
 };

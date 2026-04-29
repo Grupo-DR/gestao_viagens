@@ -89,6 +89,49 @@ function buildEmployeePayload(formData: TravelRequestFormData): Passenger {
 }
 
 // ──────────────────────────────────────────────
+// Helpers de Sanitização e Diagnóstico
+// ──────────────────────────────────────────────
+
+/**
+ * Converte recursivamente qualquer valor 'undefined' para 'null'.
+ * Firestore rejeita 'undefined', mas aceita 'null'.
+ */
+export function sanitizeForFirestore<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeForFirestore(item)) as any;
+  }
+
+  if (value && typeof value === 'object' && !(value instanceof Date)) {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, val]) => [
+        key,
+        val === undefined ? null : sanitizeForFirestore(val),
+      ])
+    ) as any;
+  }
+
+  return value;
+}
+
+/**
+ * Identifica caminhos que contêm valores 'undefined' para fins de debug.
+ */
+function findUndefinedPaths(obj: any, path: string = ''): string[] {
+  let paths: string[] = [];
+  if (!obj || typeof obj !== 'object') return paths;
+
+  Object.entries(obj).forEach(([key, value]) => {
+    const currentPath = path ? `${path}.${key}` : key;
+    if (value === undefined) {
+      paths.push(currentPath);
+    } else if (value && typeof value === 'object') {
+      paths = [...paths, ...findUndefinedPaths(value, currentPath)];
+    }
+  });
+  return paths;
+}
+
+// ──────────────────────────────────────────────
 // Comandos públicos
 // ──────────────────────────────────────────────
 
@@ -113,7 +156,7 @@ export async function createTravelRequest(
     asDraft ? 'Solicitação salva como rascunho.' : 'Solicitação enviada.'
   );
 
-  const document = {
+  const document = sanitizeForFirestore({
     status,
     requester: {
       requesterId: author.uid,
@@ -159,7 +202,13 @@ export async function createTravelRequest(
       createdBy: author.email,
       history: [historyEntry],
     },
-  };
+  });
+
+  // Diagnóstico em desenvolvimento
+  const undf = findUndefinedPaths(document);
+  if (undf.length > 0) {
+    console.warn('[Firestore Diagnostics] Undefined fields detected and sanitized:', undf);
+  }
 
   try {
     const ref = await addDoc(collection(db, COLLECTION), document);
@@ -196,31 +245,33 @@ export async function updateTravelRequest(
     asDraft ? 'Alterações salvas como rascunho.' : 'Solicitação reenviada para análise.'
   );
 
+  const updates = sanitizeForFirestore({
+    status,
+    employee: buildEmployeePayload(formData),
+    'travel.reason': formData.reason,
+    'travel.segments': Array.isArray(formData.segments) ? formData.segments : [],
+    'travel.origin': formData.origin,
+    'travel.destination': formData.destination,
+    'travel.departureDateTime': formData.departureDateTime,
+    'travel.returnDateTime': formData.returnDateTime || null,
+    'travel.baggageRequired': formData.baggageRequired,
+    'travel.costCenter': formData.costCenter,
+    'travel.projectCode': formData.projectCode || null,
+    'travel.managerName': formData.managerName || null,
+    'travel.justification': formData.justification || null,
+    'travel.isUrgent': formData.isUrgent ?? false,
+    'leavePeriod.leaveStartDate': formData.leaveStartDate || null,
+    'leavePeriod.leaveEndDate': formData.leaveEndDate || null,
+    'validation.validationRequired': needsValidation(formData.reason, formData.passengerType),
+    'validation.policyDecision': policyDecisions?.[0] || null,
+    'validation.policyDecisions': policyDecisions || [],
+    'audit.updatedAt': new Date().toISOString(),
+    'audit.history': [...currentHistory, historyEntry],
+  });
+
   const path = `${COLLECTION}/${requestId}`;
   try {
-    await updateDoc(doc(db, COLLECTION, requestId), {
-      status,
-      employee: buildEmployeePayload(formData),
-      'travel.reason': formData.reason,
-      'travel.segments': Array.isArray(formData.segments) ? formData.segments : [],
-      'travel.origin': formData.origin,
-      'travel.destination': formData.destination,
-      'travel.departureDateTime': formData.departureDateTime,
-      'travel.returnDateTime': formData.returnDateTime || null,
-      'travel.baggageRequired': formData.baggageRequired,
-      'travel.costCenter': formData.costCenter,
-      'travel.projectCode': formData.projectCode || null,
-      'travel.managerName': formData.managerName || null,
-      'travel.justification': formData.justification || null,
-      'travel.isUrgent': formData.isUrgent ?? false,
-      'leavePeriod.leaveStartDate': formData.leaveStartDate || null,
-      'leavePeriod.leaveEndDate': formData.leaveEndDate || null,
-      'validation.validationRequired': needsValidation(formData.reason, formData.passengerType),
-      'validation.policyDecision': policyDecisions?.[0] || null,
-      'validation.policyDecisions': policyDecisions || [],
-      'audit.updatedAt': new Date().toISOString(),
-      'audit.history': [...currentHistory, historyEntry],
-    });
+    await updateDoc(doc(db, COLLECTION, requestId), updates as any);
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, path);
   }
@@ -287,18 +338,17 @@ export async function changeRequestStatus(
     updates['validation.validationStatus'] = ValidationStatus.PENDENTE;
   }
 
+  const sanitizedUpdates = sanitizeForFirestore(updates);
+
   try {
-    await updateDoc(doc(db, COLLECTION, requestId), updates);
+    await updateDoc(doc(db, COLLECTION, requestId), sanitizedUpdates as any);
   } catch (error: any) {
     if (error.message?.includes('permission')) {
       console.warn('[Demo Mode] Atualizando no localStorage devido à falta de permissão Firestore.');
-      // Na demo, recarregaríamos do storage, aplicaríamos updates e salvaríamos de volta
-      // Para simplificar, assumimos que o objeto na lista do hook já está correto ou será recarregado
       const localRequests: TravelRequest[] = JSON.parse(localStorage.getItem('demo_requests') || '[]');
       const index = localRequests.findIndex(r => r.requestId === requestId);
       if (index >= 0) {
-        // Update raso para fins de demo
-        localRequests[index] = { ...localRequests[index], status: newStatus, audit: { ...localRequests[index].audit, history: updates['audit.history'] as HistoryEntry[] } };
+        localRequests[index] = { ...localRequests[index], status: newStatus, audit: { ...localRequests[index].audit, history: sanitizedUpdates['audit.history'] as HistoryEntry[] } };
         localStorage.setItem('demo_requests', JSON.stringify(localRequests));
       }
       return;

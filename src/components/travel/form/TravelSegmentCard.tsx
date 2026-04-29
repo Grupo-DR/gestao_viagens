@@ -130,7 +130,7 @@ export function TravelSegmentCard({
           <input 
             className={cn(INPUT_CLASS, hasErrors && !segment.origin.trim() && ERROR_INPUT_CLASS)} 
             placeholder="Ex: São Paulo"
-            value={segment.origin}
+            value={segment.origin || ''}
             onChange={(e) => onUpdate(segment.id, 'origin', e.target.value)}
           />
         </div>
@@ -143,7 +143,7 @@ export function TravelSegmentCard({
           <input 
             className={cn(INPUT_CLASS, "bg-slate-50/30 border-dashed")} 
             placeholder={isAir ? "Ex: Congonhas (CGH)" : "Ex: Terminal Tietê"}
-            value={segment.originTerminal}
+            value={segment.originTerminal || ''}
             onChange={(e) => onUpdate(segment.id, 'originTerminal', e.target.value)}
           />
         </div>
@@ -156,7 +156,7 @@ export function TravelSegmentCard({
           <input 
             className={cn(INPUT_CLASS, hasErrors && !segment.destination.trim() && ERROR_INPUT_CLASS)} 
             placeholder="Ex: Belo Horizonte - MG"
-            value={segment.destination}
+            value={segment.destination || ''}
             onChange={(e) => onUpdate(segment.id, 'destination', e.target.value)}
           />
           <p className="text-[9px] text-slate-400 font-medium pl-1">Use o formato: Cidade - UF (ex: São Paulo - SP)</p>
@@ -170,7 +170,7 @@ export function TravelSegmentCard({
           <input 
             className={cn(INPUT_CLASS, "bg-slate-50/30 border-dashed")} 
             placeholder={isAir ? "Ex: Salvador (SSA)" : "Ex: Rodoviária de Salvador"}
-            value={segment.destinationTerminal}
+            value={segment.destinationTerminal || ''}
             onChange={(e) => onUpdate(segment.id, 'destinationTerminal', e.target.value)}
           />
         </div>
@@ -183,7 +183,7 @@ export function TravelSegmentCard({
           <input 
             type="datetime-local"
             className={cn(INPUT_CLASS, "bg-blue-50/20 border-blue-100", hasErrors && !segment.departureDateTime && ERROR_INPUT_CLASS)} 
-            value={segment.departureDateTime}
+            value={segment.departureDateTime || ''}
             onChange={(e) => onUpdate(segment.id, 'departureDateTime', e.target.value)}
           />
         </div>
@@ -198,7 +198,7 @@ export function TravelSegmentCard({
               <input 
                 type="datetime-local"
                 className={INPUT_CLASS} 
-                value={segment.arrivalDateTime}
+                value={segment.arrivalDateTime || ''}
                 onChange={(e) => onUpdate(segment.id, 'arrivalDateTime', e.target.value)}
               />
            </div>

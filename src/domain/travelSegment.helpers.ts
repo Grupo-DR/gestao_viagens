@@ -29,6 +29,7 @@ export function createEmptySegment(order: number, direction: TravelDirection = '
     arrivalDateTime: '',
     baggageRequired: false,
     airlineQuote: '',
+    priceQuote: 0,
   };
 }
 
@@ -112,17 +113,29 @@ export function deriveTravelSummaryFromSegments(segments: TravelSegment[]): {
     };
   }
 
-  // Garante que usamos a ordem real
-  const sorted = [...segments].sort((a, b) => a.order - b.order);
-  const first = sorted[0];
-  const last = sorted[sorted.length - 1];
+  // Garante que usamos a ordem real e filtramos segmentos com dados mínimos
+  const validSegments = [...segments]
+    .filter(s => s.origin || s.destination)
+    .sort((a, b) => a.order - b.order);
+
+  if (validSegments.length === 0) {
+    return {
+      origin: '',
+      destination: '',
+      departureDateTime: '',
+      baggageRequired: false,
+    };
+  }
+
+  const first = validSegments[0];
+  const last = validSegments[validSegments.length - 1];
 
   return {
     origin: first.origin,
     destination: last.destination,
     departureDateTime: first.departureDateTime,
-    returnDateTime: sorted.length > 1 ? last.departureDateTime : null,
-    baggageRequired: sorted.some(s => s.baggageRequired),
+    returnDateTime: validSegments.length > 1 ? last.departureDateTime : null,
+    baggageRequired: validSegments.some(s => s.baggageRequired),
   };
 }
 

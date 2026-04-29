@@ -128,18 +128,30 @@ export function PurchaseForm({ request, initialData, segments, onSubmit, onCance
                      placeholder="Ex: LATAM 3450"
                    />
                 </div>
-                <div className="space-y-2">
-                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Partida Real</label>
-                   <div className="flex items-center gap-2 bg-slate-50/50 rounded-xl px-4 py-2">
-                     <Clock className="w-3.5 h-3.5 text-slate-300" />
-                     <input 
-                       type="datetime-local"
-                       value={seg.departureDateTime.slice(0, 16)}
-                       onChange={(e) => handleSegmentChange(idx, { departureDateTime: new Date(e.target.value).toISOString() })}
-                       className="bg-transparent border-none text-xs font-bold focus:ring-0 w-full"
-                     />
-                   </div>
-                </div>
+                 <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Partida Real</label>
+                    <div className="flex items-center gap-2 bg-slate-50/50 rounded-xl px-4 py-2">
+                      <Clock className="w-3.5 h-3.5 text-slate-300" />
+                      <input 
+                        type="datetime-local"
+                        value={seg.departureDateTime ? seg.departureDateTime.slice(0, 16) : ''}
+                        onChange={(e) => handleSegmentChange(idx, { departureDateTime: e.target.value ? new Date(e.target.value).toISOString() : '' })}
+                        className="bg-transparent border-none text-xs font-bold focus:ring-0 w-full"
+                      />
+                    </div>
+                 </div>
+                 <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Chegada Real</label>
+                    <div className="flex items-center gap-2 bg-slate-50/50 rounded-xl px-4 py-2">
+                      <Clock className="w-3.5 h-3.5 text-slate-300" />
+                      <input 
+                        type="datetime-local"
+                        value={seg.arrivalDateTime ? seg.arrivalDateTime.slice(0, 16) : ''}
+                        onChange={(e) => handleSegmentChange(idx, { arrivalDateTime: e.target.value ? new Date(e.target.value).toISOString() : '' })}
+                        className="bg-transparent border-none text-xs font-bold focus:ring-0 w-full"
+                      />
+                    </div>
+                 </div>
                 <div className="space-y-2">
                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-blue-600">Valor Final (BRL)</label>
                    <div className="flex items-center gap-2 bg-blue-50/50 rounded-xl px-4 py-2 border border-blue-100">

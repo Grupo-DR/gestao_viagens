@@ -13,6 +13,7 @@ import { PurchaseForm } from './PurchaseForm.tsx';
 import { ApprovalEmailBox } from './ApprovalEmailBox.tsx';
 import { cn } from '../../lib/utils.ts';
 import { normalizeSegmentsFromTravel } from '../../domain/travelSegment.helpers';
+import { dateService } from '../../application/services/dateService';
 
 interface TravelRequestDetailsModalProps {
   request: TravelRequest;
@@ -145,7 +146,7 @@ export function TravelRequestDetailsModal({
               <div>
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Data de Nascimento</label>
                 <p className="text-xs font-bold text-slate-700">
-                  {request.employee.birthDate ? format(new Date(request.employee.birthDate + 'T12:00:00'), 'dd/MM/yyyy') : '—'}
+                  {request.employee.birthDate ? dateService.formatDateTimeSafe(request.employee.birthDate + 'T12:00:00', 'dd/MM/yyyy') : '—'}
                 </p>
               </div>
               <div>
@@ -218,7 +219,11 @@ export function TravelRequestDetailsModal({
                       <div className="flex items-center gap-10">
                         <div className="text-right">
                           <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Partida</label>
-                          <p className="text-[10px] font-black text-slate-700">{format(new Date(seg.departureDateTime), 'dd/MM/yyyy HH:mm')}</p>
+                          <p className="text-[10px] font-black text-slate-700">{dateService.formatDateTimeSafe(seg.departureDateTime)}</p>
+                        </div>
+                        <div className="text-right">
+                          <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Chegada</label>
+                          <p className="text-[10px] font-black text-slate-700">{dateService.formatDateTimeSafe(seg.arrivalDateTime)}</p>
                         </div>
                         <div className="text-right w-24">
                           <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Cia / Valor</label>
@@ -275,7 +280,11 @@ export function TravelRequestDetailsModal({
                         <div className="flex items-center gap-10">
                           <div className="text-right">
                             <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Partida</label>
-                            <p className="text-[10px] font-black text-slate-700">{format(new Date(seg.departureDateTime), 'dd/MM/yyyy HH:mm')}</p>
+                            <p className="text-[10px] font-black text-slate-700">{dateService.formatDateTimeSafe(seg.departureDateTime)}</p>
+                          </div>
+                          <div className="text-right">
+                            <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Chegada</label>
+                            <p className="text-[10px] font-black text-slate-700">{dateService.formatDateTimeSafe(seg.arrivalDateTime)}</p>
                           </div>
                           <div className="text-right w-24">
                             <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Cia / Valor</label>
@@ -354,7 +363,7 @@ export function TravelRequestDetailsModal({
                               entry.updatedByRole === UserRole.COMPRADOR ? 'Compras' : entry.updatedByRole}
                            </span>
                            <span className="text-[9px] font-bold text-slate-400 italic">
-                             {format(new Date(entry.updatedAt), 'dd MMM HH:mm')}
+                             {dateService.formatDateTimeSafe(entry.updatedAt, 'dd MMM HH:mm')}
                            </span>
                         </div>
                         <p className="text-sm text-slate-700 font-semibold leading-relaxed whitespace-pre-wrap">
