@@ -1,10 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { evaluateTravelPolicy } from '../evaluateTravelPolicy';
-import { TravelReason } from '../../../domain/enums';
+import { evaluateTravelPolicy, suggestNextStatus } from '../evaluateTravelPolicy';
+import { TravelReason, RequestStatus } from '../../../domain/enums';
 import { PolicyResult } from '../../../domain/policy/enums';
 
+/**
+ * evaluateTravelPolicy retorna TravelPolicyEvaluation { date: PolicyDecision, geo: PolicyDecision }
+ * Não há .result direto no retorno — deve acessar policy.date.result ou policy.geo.result.
+ */
 describe('evaluateTravelPolicy', () => {
-  it('should auto-approve Treinamento, Visita Técnica, etc', () => {
+  it('Motivos não-CH: dateDecision deve ser APPROVED', () => {
     const reasons = [
       TravelReason.TREINAMENTO,
       TravelReason.VISITA_TECNICA,
@@ -15,12 +19,13 @@ describe('evaluateTravelPolicy', () => {
 
     reasons.forEach(reason => {
       const result = evaluateTravelPolicy(reason, '2024-01-01', '2024-01-10', null);
-      expect(result.result).toBe(PolicyResult.APPROVED);
+      expect(result.date).toBeDefined();
+      expect(result.date.result).toBe(PolicyResult.APPROVED);
+      expect(result.geo).toBeDefined();
     });
   });
 
-  it('should allow flow for Folga, Férias, and Folga+Férias (delegated to Engine)', () => {
-    // Note: Since we are passing null integrationData, results depend on Engine behavior
+  it('Motivos CH (FOLGA/FERIAS/FOLGA_FERIAS): retorna objeto válido', () => {
     const reasons = [
       TravelReason.FOLGA,
       TravelReason.FERIAS,
@@ -28,10 +33,37 @@ describe('evaluateTravelPolicy', () => {
     ];
 
     reasons.forEach(reason => {
-      // These usually return MANUAL_VALIDATION or APPROVED depending on Engine. 
-      // For testing purposes with null data, we just ensure it doesn't crash.
       const result = evaluateTravelPolicy(reason, '2024-01-01', '2024-01-10', null);
-      expect(result).toBeDefined();
+      expect(result.date).toBeDefined();
+      expect(result.geo).toBeDefined();
+      // Com dados nulos, pode retornar MANUAL_VALIDATION — apenas garante que não crashou
+      expect(result.date.result).toBeDefined();
     });
+  });
+});
+
+describe('suggestNextStatus', () => {
+  const mockDecision = {
+    result: PolicyResult.APPROVED,
+    violations: [],
+    warnings: [],
+    evidence: {},
+    summary: 'ok',
+  };
+
+  it('TREINAMENTO → AGUARDANDO_APROVACAO_COMPRA', () => {
+    expect(suggestNextStatus(mockDecision, TravelReason.TREINAMENTO)).toBe(RequestStatus.AGUARDANDO_APROVACAO_COMPRA);
+  });
+
+  it('VISITA_TECNICA → AGUARDANDO_APROVACAO_COMPRA', () => {
+    expect(suggestNextStatus(mockDecision, TravelReason.VISITA_TECNICA)).toBe(RequestStatus.AGUARDANDO_APROVACAO_COMPRA);
+  });
+
+  it('FOLGA → EM_VALIDACAO_CH', () => {
+    expect(suggestNextStatus(mockDecision, TravelReason.FOLGA)).toBe(RequestStatus.EM_VALIDACAO_CH);
+  });
+
+  it('FERIAS → EM_VALIDACAO_CH', () => {
+    expect(suggestNextStatus(mockDecision, TravelReason.FERIAS)).toBe(RequestStatus.EM_VALIDACAO_CH);
   });
 });

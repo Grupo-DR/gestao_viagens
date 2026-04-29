@@ -45,14 +45,16 @@ export function TravelRequestDetailsModal({
   const [showEmailBox, setShowEmailBox] = useState(false);
 
   // Permissões de Ação
-  const isHR = currentUserRole === UserRole.CAPITAL_HUMANO || currentUserRole === UserRole.ADMINISTRATIVO || currentUserRole === UserRole.MASTER;
-  const isBuyer = currentUserRole === UserRole.COMPRADOR || currentUserRole === UserRole.ADMINISTRATIVO || currentUserRole === UserRole.MASTER;
+  const isHR = currentUserRole === UserRole.CAPITAL_HUMANO || currentUserRole === UserRole.MASTER;
+  const isBuyer = currentUserRole === UserRole.COMPRADOR || currentUserRole === UserRole.MASTER;
   
-  const canApproveHR = (isHR || currentUserRole === UserRole.COMPRADOR) && request.status === RequestStatus.EM_VALIDACAO_CH;
-  const canBuy = isBuyer && [RequestStatus.DISPONIVEL_PARA_COMPRA, RequestStatus.APROVADA].includes(request.status);
+  // CH aprova solicitações em validação
+  const canApproveHR = isHR && request.status === RequestStatus.EM_VALIDACAO_CH;
+  // Comprador executa a compra somente quando liberada (DISPONIVEL_PARA_COMPRA)
+  const canBuy = isBuyer && request.status === RequestStatus.DISPONIVEL_PARA_COMPRA;
   
-  // Novas permissões de governança (Comprador pode registrar aprovacao externa)
-  const canApprovePurchase = (currentUserRole === UserRole.MASTER || currentUserRole === UserRole.GESTOR || currentUserRole === UserRole.COMPRADOR) && 
+  // Comprador (registrando aprovação externa) avalia solicitações aguardando aprovação
+  const canApprovePurchase = (currentUserRole === UserRole.MASTER || currentUserRole === UserRole.COMPRADOR) && 
                               request.status === RequestStatus.AGUARDANDO_APROVACAO_COMPRA;
                               
   const canFinalizeEmission = isBuyer && request.status === RequestStatus.EM_PROCESSO_DE_COMPRA;
@@ -397,18 +399,19 @@ export function TravelRequestDetailsModal({
                   <>
                     <button 
                       onClick={() => handleAction(RequestStatus.REPROVADA)}
-                      disabled={isUpdating}
-                      className="px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 transition-all border border-red-100"
+                      disabled={isUpdating || !comment.trim()}
+                      title={!comment.trim() ? 'Justificativa obrigatória para reprovar' : ''}
+                      className="px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 transition-all border border-red-100 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      Reprovar
+                      Reprovar (Definitivo)
                     </button>
                     <button 
-                      onClick={() => handleAction(RequestStatus.DISPONIVEL_PARA_COMPRA)}
+                      onClick={() => handleAction(RequestStatus.AGUARDANDO_APROVACAO_COMPRA)}
                       disabled={isUpdating}
                       className="bg-emerald-600 text-white px-10 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-emerald-700 shadow-xl shadow-emerald-100 flex items-center gap-2 group transition-all"
                     >
                       {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4 group-hover:scale-110 transition-transform" />}
-                      Aprovar para Compra
+                      Aprovar e Enviar para Compras
                     </button>
                   </>
                 )}
@@ -450,15 +453,15 @@ export function TravelRequestDetailsModal({
                       title={!comment.trim() ? 'Justificativa obrigatória para recusar' : ''}
                       className="px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 transition-all border border-red-100 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      Recusar Variação
+                      Recusar Compra
                     </button>
                     <button 
-                      onClick={() => handleAction(RequestStatus.EM_PROCESSO_DE_COMPRA)}
+                      onClick={() => handleAction(RequestStatus.DISPONIVEL_PARA_COMPRA)}
                       disabled={isUpdating}
                       className="bg-indigo-600 text-white px-10 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-indigo-700 shadow-xl flex items-center gap-2 group transition-all disabled:opacity-40"
                     >
                       <CheckCircle className="w-4 h-4" />
-                      Aprovar Variação de Compra
+                      Aprovar Compra
                     </button>
                   </div>
                 )}
@@ -478,7 +481,7 @@ export function TravelRequestDetailsModal({
                 {isRejectedPurchase && (
                   <div className="flex items-center gap-4 bg-red-50 px-6 py-3 rounded-2xl border border-red-100">
                     <ShieldAlert className="w-5 h-5 text-red-600" />
-                    <span className="text-xs font-bold text-red-800 italic uppercase">Variação de compra recusada pela gestão.</span>
+                    <span className="text-xs font-bold text-red-800 italic uppercase">Compra recusada. Solicitação encerrada.</span>
                     <button 
                       onClick={() => handleAction(RequestStatus.CANCELADA)}
                       className="text-[10px] font-black uppercase text-red-600 underline hover:no-underline ml-4"

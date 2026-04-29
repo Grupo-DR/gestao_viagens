@@ -27,11 +27,13 @@ import type {
 // ──────────────────────────────────────────────
 
 /**
- * Determina se o motivo da viagem ou tipo de passageiro exige validação pelo Capital Humano.
- * Regra de negócio: Folga, Férias, Admissão, Demissão ou passageiro EXTERNO passam pela fila CH.
+ * Determina se o motivo da viagem exige validação pelo Capital Humano.
+ * Regra de negócio: apenas o motivo determina a fila CH.
+ * Folga, Férias, Folga+Férias, Admissão e Demissão passam pela fila CH.
+ * O tipo de passageiro (interno/externo) NÃO influencia esta decisão.
+ * @param passengerType mantido apenas por compatibilidade de assinatura — não usado.
  */
 export function needsValidation(reason: TravelReason, passengerType?: PassengerType): boolean {
-  if (passengerType === 'external') return true;
   return REASONS_REQUIRING_CH_VALIDATION.has(reason);
 }
 
@@ -62,9 +64,10 @@ export function isRequestUrgent(request: TravelRequest): boolean {
  * Calcula o status inicial de uma nova solicitação ao ser enviada.
  * Regras:
  * - Rascunho → sempre RASCUNHO
- * - Passageiro EXTERNO → sempre EM_VALIDACAO_CH (governança obrigatória)
- * - Motivos CH (Folga/Férias) → EM_VALIDACAO_CH
- * - Demais → EM_VALIDACAO_CH (alinhado ao workflow padrão)
+ * - Motivos CH (Folga/Férias/Folga+Férias/Admissão/Demissão) → EM_VALIDACAO_CH
+ * - Demais (Treinamento/Visita Técnica/Visita à Obra) → AGUARDANDO_APROVACAO_COMPRA
+ *   (Compras avalia, cota e solicita aprovação — nunca libera direto para compra)
+ * O tipo de passageiro NÃO altera o fluxo inicial.
  */
 export function getInitialStatus(
   reason: TravelReason,
@@ -72,46 +75,64 @@ export function getInitialStatus(
   passengerType?: PassengerType
 ): RequestStatus {
   if (asDraft) return RequestStatus.RASCUNHO;
-  
-  // Se precisa de validação, vai para CH. Caso contrário, libera para compra.
-  return needsValidation(reason, passengerType) 
-    ? RequestStatus.EM_VALIDACAO_CH 
-    : RequestStatus.DISPONIVEL_PARA_COMPRA;
+
+  // Motivos CH → validação pelo Capital Humano primeiro
+  // Demais → aguarda aprovação e cotação em Compras
+  return needsValidation(reason, passengerType)
+    ? RequestStatus.EM_VALIDACAO_CH
+    : RequestStatus.AGUARDANDO_APROVACAO_COMPRA;
 }
 
 /**
  * Retorna as transições de status permitidas com base no status atual e no papel do usuário.
  * Esta é a única fonte de verdade para botões de ação e validações de serviço.
+ *
+ * Fluxo Motivos COM CH:
+ *   RASCUNHO → EM_VALIDACAO_CH → AGUARDANDO_APROVACAO_COMPRA → DISPONIVEL_PARA_COMPRA → EM_PROCESSO_DE_COMPRA → EMITIDA
+ *
+ * Fluxo Motivos SEM CH:
+ *   RASCUNHO → AGUARDANDO_APROVACAO_COMPRA → DISPONIVEL_PARA_COMPRA → EM_PROCESSO_DE_COMPRA → EMITIDA
+ *
+ * Fluxos de recusa:
+ *   EM_VALIDACAO_CH → REPROVADA (definitivo)
+ *   AGUARDANDO_APROVACAO_COMPRA → COMPRA_RECUSADA
  */
 export function getAvailableTransitions(
   currentStatus: RequestStatus,
   role: UserRole
 ): RequestStatus[] {
   const transitions: Partial<Record<RequestStatus, { allowed: RequestStatus[]; roles: UserRole[] }>> = {
+    // Solicitante pode reenviar para CH ou direto para Compras (dependendo do motivo)
     [RequestStatus.RASCUNHO]: {
-      allowed: [RequestStatus.EM_VALIDACAO_CH, RequestStatus.DISPONIVEL_PARA_COMPRA],
+      allowed: [RequestStatus.EM_VALIDACAO_CH, RequestStatus.AGUARDANDO_APROVACAO_COMPRA],
       roles: [UserRole.MASTER, UserRole.ADMINISTRATIVO, UserRole.GESTOR],
     },
+    // Após correção, o solicitante reenvia pelo mesmo caminho do fluxo original
     [RequestStatus.PENDENTE_CORRECAO]: {
-      allowed: [RequestStatus.EM_VALIDACAO_CH, RequestStatus.DISPONIVEL_PARA_COMPRA],
+      allowed: [RequestStatus.EM_VALIDACAO_CH, RequestStatus.AGUARDANDO_APROVACAO_COMPRA],
       roles: [UserRole.MASTER, UserRole.ADMINISTRATIVO, UserRole.GESTOR],
     },
+    // CH aprova → Compras avalia; CH reprova → REPROVADA (definitivo)
     [RequestStatus.EM_VALIDACAO_CH]: {
-      allowed: [RequestStatus.DISPONIVEL_PARA_COMPRA, RequestStatus.REPROVADA, RequestStatus.PENDENTE_CORRECAO],
-      roles: [UserRole.MASTER, UserRole.CAPITAL_HUMANO, UserRole.COMPRADOR],
+      allowed: [RequestStatus.AGUARDANDO_APROVACAO_COMPRA, RequestStatus.REPROVADA],
+      roles: [UserRole.MASTER, UserRole.CAPITAL_HUMANO],
     },
-    [RequestStatus.DISPONIVEL_PARA_COMPRA]: {
-      allowed: [RequestStatus.EMITIDA, RequestStatus.CANCELADA, RequestStatus.PENDENTE_CORRECAO, RequestStatus.AGUARDANDO_APROVACAO_COMPRA, RequestStatus.EM_PROCESSO_DE_COMPRA],
-      roles: [UserRole.MASTER, UserRole.COMPRADOR],
-    },
+    // Compras aprova (libera para execução) ou recusa
     [RequestStatus.AGUARDANDO_APROVACAO_COMPRA]: {
-      allowed: [RequestStatus.EM_PROCESSO_DE_COMPRA, RequestStatus.COMPRA_RECUSADA, RequestStatus.CANCELADA],
+      allowed: [RequestStatus.DISPONIVEL_PARA_COMPRA, RequestStatus.COMPRA_RECUSADA, RequestStatus.CANCELADA],
       roles: [UserRole.MASTER, UserRole.COMPRADOR],
     },
+    // Comprador inicia a compra (preenche PurchaseForm)
+    [RequestStatus.DISPONIVEL_PARA_COMPRA]: {
+      allowed: [RequestStatus.EM_PROCESSO_DE_COMPRA, RequestStatus.CANCELADA],
+      roles: [UserRole.MASTER, UserRole.COMPRADOR],
+    },
+    // Comprador confirma emissão final (preenche dados reais do bilhete)
     [RequestStatus.EM_PROCESSO_DE_COMPRA]: {
       allowed: [RequestStatus.EMITIDA, RequestStatus.CANCELADA],
       roles: [UserRole.MASTER, UserRole.COMPRADOR],
     },
+    // Compra recusada — apenas cancelamento disponível (sem retorno ao solicitante)
     [RequestStatus.COMPRA_RECUSADA]: {
       allowed: [RequestStatus.CANCELADA],
       roles: [UserRole.MASTER, UserRole.COMPRADOR],
@@ -202,19 +223,19 @@ export function getStatusColor(status: RequestStatus | string): string {
  */
 export function getStatusLabel(status: RequestStatus): string {
   switch (status) {
-    case RequestStatus.RASCUNHO:               return 'Rascunho';
-    case RequestStatus.ENVIADA:                return 'Enviada';
-    case RequestStatus.EM_VALIDACAO_CH:        return 'Em Validação CH';
-    case RequestStatus.PENDENTE_CORRECAO:      return 'Pendente de Correção';
-    case RequestStatus.DISPONIVEL_PARA_COMPRA: return 'Disponível para Compra';
-    case RequestStatus.AGUARDANDO_APROVACAO_COMPRA: return 'Aguardando Aprovação de Variação';
-    case RequestStatus.EM_PROCESSO_DE_COMPRA:     return 'Em Processo de Compra';
-    case RequestStatus.COMPRA_RECUSADA:           return 'Compra Recusada';
-    case RequestStatus.REPROVADA:              return 'Reprovada';
-    case RequestStatus.CANCELADA:              return 'Cancelada';
-    case RequestStatus.EMITIDA:                return 'Bilhete Emitido';
-    case RequestStatus.CONCLUIDA:              return 'Concluída';
-    default:                                   return status;
+    case RequestStatus.RASCUNHO:                    return 'Rascunho';
+    case RequestStatus.ENVIADA:                     return 'Enviada';
+    case RequestStatus.EM_VALIDACAO_CH:             return 'Em Validação CH';
+    case RequestStatus.PENDENTE_CORRECAO:           return 'Pendente de Correção';
+    case RequestStatus.DISPONIVEL_PARA_COMPRA:      return 'Disponível para Compra';
+    case RequestStatus.AGUARDANDO_APROVACAO_COMPRA: return 'Aguardando Aprovação da Compra';
+    case RequestStatus.EM_PROCESSO_DE_COMPRA:       return 'Em Processo de Compra';
+    case RequestStatus.COMPRA_RECUSADA:             return 'Compra Recusada';
+    case RequestStatus.REPROVADA:                   return 'Reprovada';
+    case RequestStatus.CANCELADA:                   return 'Cancelada';
+    case RequestStatus.EMITIDA:                     return 'Bilhete Emitido';
+    case RequestStatus.CONCLUIDA:                   return 'Concluída';
+    default:                                        return status;
   }
 }
 
@@ -223,16 +244,18 @@ export function getStatusLabel(status: RequestStatus): string {
  */
 export function getActionLabel(targetStatus: RequestStatus): string {
   switch (targetStatus) {
-    case RequestStatus.EM_VALIDACAO_CH:        return 'Enviar para CH';
-    case RequestStatus.DISPONIVEL_PARA_COMPRA: return 'Aprovar / Liberar';
-    case RequestStatus.REPROVADA:              return 'Reprovar';
-    case RequestStatus.PENDENTE_CORRECAO:      return 'Solicitar Correção';
-    case RequestStatus.AGUARDANDO_APROVACAO_COMPRA: return 'Solicitar Aprovação';
-    case RequestStatus.EM_PROCESSO_DE_COMPRA:     return 'Liberar para Compra';
-    case RequestStatus.COMPRA_RECUSADA:           return 'Recusar Variação';
-    case RequestStatus.EMITIDA:                return 'Confirmar Emissão';
-    case RequestStatus.CANCELADA:              return 'Cancelar';
-    default:                                   return 'Avançar';
+    case RequestStatus.EM_VALIDACAO_CH:              return 'Enviar para CH';
+    // CH aprova → encaminha para avaliação/cotação em Compras
+    case RequestStatus.AGUARDANDO_APROVACAO_COMPRA:  return 'Aprovar e Enviar para Compras';
+    case RequestStatus.REPROVADA:                    return 'Reprovar';
+    case RequestStatus.PENDENTE_CORRECAO:            return 'Solicitar Correção';
+    // Comprador aprova a cotação → libera para execução da compra
+    case RequestStatus.DISPONIVEL_PARA_COMPRA:       return 'Aprovar Compra';
+    case RequestStatus.COMPRA_RECUSADA:              return 'Recusar Compra';
+    case RequestStatus.EM_PROCESSO_DE_COMPRA:        return 'Iniciar Compra';
+    case RequestStatus.EMITIDA:                      return 'Confirmar Emissão';
+    case RequestStatus.CANCELADA:                    return 'Cancelar';
+    default:                                         return 'Avançar';
   }
 }
 

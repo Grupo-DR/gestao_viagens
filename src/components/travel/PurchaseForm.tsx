@@ -45,10 +45,11 @@ export function PurchaseForm({ request, initialData, segments, onSubmit, onCance
     e.preventDefault();
     const finalPrice = parseFloat(price.replace(',', '.')) || 0;
     
-    // Define o próximo status com base no fluxo de governança
+    // DISPONIVEL_PARA_COMPRA: comprador inicia a compra (dados reais) → EM_PROCESSO_DE_COMPRA
+    // EM_PROCESSO_DE_COMPRA: comprador confirma emissão final (localizador + bilhete) → EMITIDA
     const nextStatus = isFinalizing 
       ? RequestStatus.EMITIDA 
-      : RequestStatus.AGUARDANDO_APROVACAO_COMPRA;
+      : RequestStatus.EM_PROCESSO_DE_COMPRA;
 
     onSubmit(
       { 
@@ -57,8 +58,8 @@ export function PurchaseForm({ request, initialData, segments, onSubmit, onCance
         price: finalPrice 
       },
       comment.trim() || (isFinalizing 
-        ? 'Emissão finalizada após aprovação de variação.' 
-        : 'Solicitação de aprovação enviada com ajustes no itinerário.'),
+        ? 'Emissão confirmada com dados reais do bilhete.' 
+        : 'Compra iniciada. Dados reais registrados pelo comprador.'),
       editableSegments,
       nextStatus
     );
@@ -76,10 +77,10 @@ export function PurchaseForm({ request, initialData, segments, onSubmit, onCance
           </div>
           <div>
             <h4 className="font-black text-slate-900 tracking-tight text-lg italic">
-              {isFinalizing ? 'Finalizar Emissão' : 'Processar Emissão'}
+              {isFinalizing ? 'Finalizar Emissão' : 'Registrar Dados da Compra'}
             </h4>
             <p className="text-[10px] text-blue-600 font-black uppercase tracking-[0.2em] mt-0.5">
-              {isFinalizing ? 'Confirme os dados do bilhete para encerrar' : 'Ajuste os valores reais e solicite aprovação'}
+              {isFinalizing ? 'Confirme os dados do bilhete para encerrar' : 'Preencha os dados reais da passagem comprada'}
             </p>
           </div>
         </div>
@@ -208,7 +209,7 @@ export function PurchaseForm({ request, initialData, segments, onSubmit, onCance
           className="px-10 py-4 rounded-2xl text-[11px] font-black text-white bg-indigo-600 hover:bg-indigo-700 transition-all uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-indigo-100"
         >
           {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : isFinalizing ? <CheckCircle className="w-4 h-4" /> : <Send className="w-4 h-4" />}
-          {isFinalizing ? 'Finalizar Compra' : 'Solicitar Aprovação'}
+          {isFinalizing ? 'Finalizar Compra' : 'Registrar e Processar Compra'}
         </button>
       </div>
 

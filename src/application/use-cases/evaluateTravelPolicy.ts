@@ -4,6 +4,7 @@ import { PolicyDecision, TravelPolicyEvaluation } from '../../domain/policy/type
 import { PolicyEngine } from '../../domain/policy/rules';
 import { TravelSegment } from '../../domain/types';
 import { EmployeeIntegrationResult } from './fetchEmployeeIntegrationData';
+import { getInitialStatus } from '../../domain/travelRequest.rules';
 
 /**
  * Caso de Uso: Avalia a política da solicitação com base nos dados de integração.
@@ -74,11 +75,13 @@ export function evaluateTravelPolicy(
 }
 
 /**
- * Sugere o próximo status do workflow com base no resultado da política.
- * Fluxo: Administrador -> Capital Humano (Avaliação) -> Compras (Emissão).
+ * Sugere o próximo status do workflow com base no resultado da política e no motivo da viagem.
+ * Respeita a regra de domínio: motivos CH vao para EM_VALIDACAO_CH,
+ * os demais vão diretamente para AGUARDANDO_APROVACAO_COMPRA.
+ *
+ * @param decision - Resultado da avaliação de política (usado como contexto)
+ * @param reason - Motivo da viagem (determina o fluxo correto)
  */
-export function suggestNextStatus(decision: PolicyDecision): RequestStatus {
-  // Todas as solicitações enviadas seguem para o Capital Humano para validação manual,
-  // permitindo que o CH verifique as inconformidades sinalizadas pelo motor de regras.
-  return RequestStatus.EM_VALIDACAO_CH;
+export function suggestNextStatus(decision: PolicyDecision, reason: TravelReason): RequestStatus {
+  return getInitialStatus(reason, false);
 }

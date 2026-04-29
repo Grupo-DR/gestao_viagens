@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => {
     test: {
       globals: true,
       environment: 'node',
-      include: ['src/test/**/*.test.ts'],
+      include: ['src/test/**/*.test.ts', 'src/domain/__tests__/**/*.test.ts', 'src/application/**/__tests__/**/*.test.ts'],
     },
   };
 });

@@ -104,7 +104,7 @@ export async function createTravelRequest(
 ): Promise<string> {
   const status = asDraft 
     ? RequestStatus.RASCUNHO 
-    : (policyDecisions?.[0] ? suggestNextStatus(policyDecisions[0]) : getInitialStatus(formData.reason, false, formData.passengerType));
+    : (policyDecisions?.[0] ? suggestNextStatus(policyDecisions[0], formData.reason) : getInitialStatus(formData.reason, false, formData.passengerType));
   const now = new Date().toISOString();
 
   const historyEntry = buildHistoryEntry(
@@ -188,7 +188,7 @@ export async function updateTravelRequest(
 ): Promise<void> {
   const status = asDraft
     ? RequestStatus.RASCUNHO
-    : (policyDecisions?.[0] ? suggestNextStatus(policyDecisions[0]) : getInitialStatus(formData.reason, false, formData.passengerType));
+    : (policyDecisions?.[0] ? suggestNextStatus(policyDecisions[0], formData.reason) : getInitialStatus(formData.reason, false, formData.passengerType));
 
   const historyEntry = buildHistoryEntry(
     status,
@@ -279,7 +279,8 @@ export async function changeRequestStatus(
   if (newStatus === RequestStatus.REPROVADA) {
     updates['validation.validationStatus'] = ValidationStatus.REPROVADA;
   }
-  if (newStatus === RequestStatus.DISPONIVEL_PARA_COMPRA) {
+  // CH aprovou: solicitação avança para AGUARDANDO_APROVACAO_COMPRA
+  if (newStatus === RequestStatus.AGUARDANDO_APROVACAO_COMPRA) {
     updates['validation.validationStatus'] = ValidationStatus.APROVADA;
   }
   if (newStatus === RequestStatus.PENDENTE_CORRECAO) {
