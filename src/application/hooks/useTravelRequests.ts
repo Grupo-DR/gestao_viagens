@@ -180,7 +180,10 @@ function buildQuery(view: TravelListView, userId?: string): Query<DocumentData> 
       return query(
         col, 
         where('status', 'in', [
-          RequestStatus.DISPONIVEL_PARA_COMPRA, 
+          RequestStatus.AGUARDANDO_APROVACAO_COMPRA, // Comprador precisa aprovar/recusar
+          RequestStatus.DISPONIVEL_PARA_COMPRA,      // Comprador executa a compra
+          RequestStatus.EM_PROCESSO_DE_COMPRA,       // Comprador confirma emissão
+          RequestStatus.COMPRA_RECUSADA,             // Visibilidade de recusadas
           RequestStatus.EMITIDA, 
           RequestStatus.CANCELADA,
           RequestStatus.CONCLUIDA
