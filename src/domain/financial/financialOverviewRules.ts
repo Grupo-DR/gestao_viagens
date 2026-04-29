@@ -131,8 +131,9 @@ export function getFinancialCompetencyDate(request: TravelRequest): Date {
 // ──────────────────────────────────────────────
 
 /**
- * Classifica a solicitação como aéreo ou rodoviário.
- * Se qualquer trecho for aéreo, a solicitação é classificada como aérea.
+ * Classifica a solicitação como aéreo ou rodoviário (LEGADO/UI).
+ * Nota: Para fins financeiros, use a agregação por trecho em buildFinancialOverview.
+ * Se qualquer trecho for aéreo, a solicitação é classificada como aérea para fins de visualização em listas.
  */
 export function getRequestTransportMode(request: TravelRequest): 'aereo' | 'rodoviario' {
   const segments = request.travel.segments ?? [];
@@ -158,8 +159,9 @@ export function isFinanciallyExecuted(request: TravelRequest): boolean {
 }
 
 /**
- * Retorna o valor executado de uma solicitação baseado na cotação inicial (priceQuote).
- * Retorna null se houver algum trecho sem preço definido (inconsistência).
+ * Retorna o valor executado TOTAL de uma solicitação.
+ * Retorna null se houver algum trecho sem preço definido.
+ * Nota: Para filtragem por modal, o buildFinancialOverview processa cada trecho individualmente.
  */
 export function getExecutedAmount(request: TravelRequest): number | null {
   const segments = request.travel.segments ?? [];
@@ -169,8 +171,8 @@ export function getExecutedAmount(request: TravelRequest): number | null {
   let total = 0;
   for (const segment of segments) {
     const price = segment.priceQuote;
-    if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) {
-      return null; // Qualquer trecho sem preço invalida o total da solicitação
+    if (typeof price !== 'number' || !Number.isFinite(price) || price < 0) {
+      return null; 
     }
     total += price;
   }

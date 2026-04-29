@@ -12,13 +12,14 @@ import {
   buildFinancialOverview,
   FinancialOverviewFilters,
 } from '../../application/use-cases/buildFinancialOverview';
+import { buildFinancialInsights } from '../../application/use-cases/buildFinancialInsights';
 import { getCostCenterKey } from '../../domain/financial/financialOverviewRules';
 import { getAllCostCenters, CostCenterItem } from '../../application/services/costCenterService';
 import { UserRole } from '../../domain/enums';
 import { IssuedTicketsCard } from './financial/IssuedTicketsCard';
 import { ExecutedAmountCard } from './financial/ExecutedAmountCard';
 import { BudgetBalanceCard } from './financial/BudgetBalanceCard';
-import { FinancialStatusCard } from './financial/FinancialStatusCard';
+import { ExecutiveInsightsCard } from './financial/ExecutiveInsightsCard';
 import { FinancialCostCenterTable } from './financial/FinancialCostCenterTable';
 import { Filter, X, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -113,6 +114,15 @@ export const FinancialDashboard: React.FC = () => {
         masterCostCenters
       ),
     [requests, budgets, filters, currentUser, masterCostCenters]
+  );
+
+  const insights = useMemo(() => 
+    buildFinancialInsights({
+      summary: overviewData.summary,
+      rows: overviewData.rows,
+      filters
+    }),
+    [overviewData, filters]
   );
 
   // ── Reset de filtros ──
@@ -236,11 +246,11 @@ export const FinancialDashboard: React.FC = () => {
       </div>
 
       {/* ── Cards Executivos (linha 1) ───────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-stretch">
         <IssuedTicketsCard summary={overviewData.summary} />
         <ExecutedAmountCard summary={overviewData.summary} />
         <BudgetBalanceCard summary={overviewData.summary} />
-        <FinancialStatusCard summary={overviewData.summary} />
+        <ExecutiveInsightsCard insights={insights} />
       </div>
 
       {/* ── Tabela principal ────────────────────────────────── */}

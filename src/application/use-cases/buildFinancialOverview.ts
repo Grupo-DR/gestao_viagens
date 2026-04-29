@@ -43,6 +43,8 @@ export type FinancialCostCenterRow = {
 
   /** Orçamento mensal total consolidado para o CC */
   budgetAmount: number;
+  airBudgetAmount: number;
+  groundBudgetAmount: number;
 
   issuedAirCount: number;
   issuedGroundCount: number;
@@ -64,6 +66,8 @@ export type FinancialCostCenterRow = {
 
 export type FinancialOverviewSummary = {
   totalBudget: number;
+  airBudgetAmount: number;
+  groundBudgetAmount: number;
   totalExecuted: number;
   totalAvailable: number;
   consumptionPercent: number | null;
@@ -81,6 +85,18 @@ export type FinancialOverviewSummary = {
   noBudgetCostCenters: number;
 
   missingPriceCount: number;
+
+  // Métricas analíticas extras para os cards
+  airConsumptionPercent: number | null;
+  groundConsumptionPercent: number | null;
+  airAvailableAmount: number;
+  groundAvailableAmount: number;
+  airStatus: FinancialStatus;
+  groundStatus: FinancialStatus;
+
+  averageTicketTotal: number;
+  averageTicketAir: number;
+  averageTicketGround: number;
 };
 
 export type FinancialOverviewData = {
@@ -103,6 +119,8 @@ function createEmptyRow(
     costCenterCode: ccRawLabel.split(/[\s-]/)[0] || ccRawLabel,
     costCenterLabel: ccRawLabel,
     budgetAmount,
+    airBudgetAmount: 0,
+    groundBudgetAmount: 0,
     issuedAirCount: 0,
     issuedGroundCount: 0,
     issuedTotalCount: 0,
@@ -186,11 +204,18 @@ export function buildFinancialOverview(
     if (filterCCKey && ccKey !== filterCCKey) return;
 
     const existing = ccMap.get(ccKey);
+    const budgetVal = Number(b.value) || 0;
     if (existing) {
-      existing.budgetAmount += Number(b.value) || 0;
+      existing.budgetAmount += budgetVal;
+      if (b.category === 'aereo') existing.airBudgetAmount += budgetVal;
+      else if (b.category === 'rodoviario') existing.groundBudgetAmount += budgetVal;
+      
       existing.costCenterLabel = getEnrichedLabel(ccKey, existing.costCenterLabel, b.costCenter);
     } else {
-      const row = createEmptyRow(ccKey, b.costCenter, Number(b.value) || 0);
+      const row = createEmptyRow(ccKey, b.costCenter, budgetVal);
+      if (b.category === 'aereo') row.airBudgetAmount = budgetVal;
+      else if (b.category === 'rodoviario') row.groundBudgetAmount = budgetVal;
+      
       row.costCenterLabel = getEnrichedLabel(ccKey, row.costCenterLabel);
       ccMap.set(ccKey, row);
     }
@@ -221,19 +246,35 @@ export function buildFinancialOverview(
     row.costCenterLabel = getEnrichedLabel(ccKey, row.costCenterLabel, r.travel.costCenter);
     row.costCenterCode = row.costCenterLabel.match(/^[\d.]+/)?.[0] || row.costCenterLabel;
 
-    const mode = getRequestTransportMode(r);
-    const amount = getExecutedAmount(r);
+    // ── Agregação por Trecho (Segmento) ──────────────────────────
+    const segments = r.travel.segments ?? [];
+    for (const seg of segments) {
+      const mode = seg.transportMode;
+      
+      // Aplicar filtro de modal ANTES da agregação do trecho
+      if (filters.transportMode && filters.transportMode !== 'all') {
+        if (mode !== filters.transportMode) continue;
+      }
 
-    if (mode === 'aereo') {
-      row.issuedAirCount += 1;
-      if (amount !== null) row.airAmount += amount;
-    } else {
-      row.issuedGroundCount += 1;
-      if (amount !== null) row.groundAmount += amount;
-    }
+      const price = seg.priceQuote;
+      const isValidPrice = typeof price === 'number' && Number.isFinite(price) && price > 0;
 
-    if (amount === null) {
-      row.missingPriceCount += 1;
+      if (mode === 'aereo') {
+        row.issuedAirCount += 1;
+        if (isValidPrice) {
+          row.airAmount += price;
+        }
+      } else {
+        row.issuedGroundCount += 1;
+        if (isValidPrice) {
+          row.groundAmount += price;
+        }
+      }
+
+      // Pendência por trecho sem preço
+      if (!isValidPrice) {
+        row.missingPriceCount += 1;
+      }
     }
   });
 
@@ -266,6 +307,8 @@ export function buildFinancialOverview(
   const summary = rows.reduce<FinancialOverviewSummary>(
     (acc, row) => {
       acc.totalBudget += row.budgetAmount;
+      acc.airBudgetAmount += row.airBudgetAmount;
+      acc.groundBudgetAmount += row.groundBudgetAmount;
       acc.totalExecuted += row.executedAmount;
       acc.issuedAirCount += row.issuedAirCount;
       acc.issuedGroundCount += row.issuedGroundCount;
@@ -283,6 +326,8 @@ export function buildFinancialOverview(
     },
     {
       totalBudget: 0,
+      airBudgetAmount: 0,
+      groundBudgetAmount: 0,
       totalExecuted: 0,
       totalAvailable: 0,
       consumptionPercent: null,
@@ -296,12 +341,38 @@ export function buildFinancialOverview(
       criticalCostCenters: 0,
       noBudgetCostCenters: 0,
       missingPriceCount: 0,
+      airConsumptionPercent: null,
+      groundConsumptionPercent: null,
+      airAvailableAmount: 0,
+      groundAvailableAmount: 0,
+      airStatus: 'healthy',
+      groundStatus: 'healthy',
+      averageTicketTotal: 0,
+      averageTicketAir: 0,
+      averageTicketGround: 0,
     }
   );
 
   summary.totalAvailable = summary.totalBudget - summary.totalExecuted;
   summary.consumptionPercent =
     summary.totalBudget > 0 ? summary.totalExecuted / summary.totalBudget : null;
+
+  // Cálculos por modal
+  summary.airAvailableAmount = summary.airBudgetAmount - summary.airAmount;
+  summary.groundAvailableAmount = summary.groundBudgetAmount - summary.groundAmount;
+  
+  summary.airConsumptionPercent = 
+    summary.airBudgetAmount > 0 ? summary.airAmount / summary.airBudgetAmount : null;
+  summary.groundConsumptionPercent = 
+    summary.groundBudgetAmount > 0 ? summary.groundAmount / summary.groundBudgetAmount : null;
+    
+  summary.airStatus = getFinancialStatus(summary.airBudgetAmount, summary.airAmount);
+  summary.groundStatus = getFinancialStatus(summary.groundBudgetAmount, summary.groundAmount);
+  
+  // Tickets Médios
+  summary.averageTicketTotal = summary.issuedTotalCount > 0 ? summary.totalExecuted / summary.issuedTotalCount : 0;
+  summary.averageTicketAir = summary.issuedAirCount > 0 ? summary.airAmount / summary.issuedAirCount : 0;
+  summary.averageTicketGround = summary.issuedGroundCount > 0 ? summary.groundAmount / summary.issuedGroundCount : 0;
 
   return { summary, rows };
 }

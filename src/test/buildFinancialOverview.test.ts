@@ -107,7 +107,7 @@ describe('Cenários de Agregação e Preço', () => {
       purchase: { purchaseStatus: PurchaseStatus.EMITIDA, price: 2000, purchasedAt: '2026-04-10T12:00:00Z' }
     });
 
-    const { rows } = buildFinancialOverview([request], [budget], BASE_FILTERS, []);
+    const { rows } = buildFinancialOverview([request], [budget], BASE_FILTERS, [], UserRole.ADMINISTRATIVO, []);
 
     expect(rows).toHaveLength(1);
     expect(rows[0].executedAmount).toBe(950); // 500 + 450
@@ -125,7 +125,7 @@ describe('Cenários de Agregação e Preço', () => {
       }
     });
 
-    const { summary, rows } = buildFinancialOverview([request], [], BASE_FILTERS, []);
+    const { summary, rows } = buildFinancialOverview([request], [], BASE_FILTERS, [], UserRole.ADMINISTRATIVO, []);
 
     expect(rows[0].executedAmount).toBe(0);
     expect(rows[0].missingPriceCount).toBe(1);
@@ -136,7 +136,7 @@ describe('Cenários de Agregação e Preço', () => {
     const reqValidada = makeRequest({ status: RequestStatus.EM_VALIDACAO_CH });
     const reqEmitida = makeRequest({ status: RequestStatus.EMITIDA });
 
-    const { summary } = buildFinancialOverview([reqValidada, reqEmitida], [], BASE_FILTERS, []);
+    const { summary } = buildFinancialOverview([reqValidada, reqEmitida], [], BASE_FILTERS, [], UserRole.ADMINISTRATIVO, []);
 
     expect(summary.issuedTotalCount).toBe(1);
   });
@@ -149,7 +149,7 @@ describe('Cenários de Agregação e Preço', () => {
 describe('Cenário H — Hierarquia de Nomes', () => {
   it('Deve manter a prioridade do Dicionário Estático', () => {
     const budget = makeBudget({ costCenter: '3028.01', value: 1000 });
-    const { rows } = buildFinancialOverview([], [budget], BASE_FILTERS, []);
+    const { rows } = buildFinancialOverview([], [budget], BASE_FILTERS, [], UserRole.ADMINISTRATIVO, []);
     expect(rows[0].costCenterLabel).toBe('3028.01 - INFRA ESTRUTURA - GERDAU S/A');
   });
 });
