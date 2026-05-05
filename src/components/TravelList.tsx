@@ -11,9 +11,10 @@ import { ptBR } from 'date-fns/locale';
 import {
   Search, Info, Edit2, Trash2, CheckCircle2, XCircle,
   AlertTriangle, ShoppingCart, Loader2, ArrowRight, ShieldAlert,
-  CheckCircle, ClipboardCheck
+  CheckCircle, ClipboardCheck, FileSpreadsheet
 } from 'lucide-react';
 import { PolicyResult } from '../domain/policy/enums';
+import { exportIssuedTicketsToExcel } from '../application/services/issuedTicketsExportService';
 import { RequestStatus, PurchaseStatus, ValidationStatus, TravelReason } from '../domain/enums';
 import {
   getStatusColor,
@@ -217,29 +218,45 @@ export function TravelList({ view, onEdit, onCreate }: TravelListProps) {
         <>
           {/* Abas Especiais para o Comprador */}
           {view === 'buyer' && (
-            <div className="flex items-center gap-1 p-1 bg-slate-100/50 rounded-2xl w-fit border border-slate-200/60 mb-2">
-              <button
-                onClick={() => setBuyerTab('pending')}
-                className={cn(
-                  "px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all",
-                  buyerTab === 'pending' 
-                    ? "bg-white text-blue-600 shadow-sm ring-1 ring-black/5" 
-                    : "text-slate-400 hover:text-slate-600"
-                )}
-              >
-                Para Comprar
-              </button>
-              <button
-                onClick={() => setBuyerTab('completed')}
-                className={cn(
-                  "px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all",
-                  buyerTab === 'completed' 
-                    ? "bg-white text-emerald-600 shadow-sm ring-1 ring-black/5" 
-                    : "text-slate-400 hover:text-slate-600"
-                )}
-              >
-                Histórico / Concluídas
-              </button>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+              {/* Seletor de abas */}
+              <div className="flex items-center gap-1 p-1 bg-slate-100/50 rounded-2xl w-fit border border-slate-200/60">
+                <button
+                  onClick={() => setBuyerTab('pending')}
+                  className={cn(
+                    "px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all",
+                    buyerTab === 'pending' 
+                      ? "bg-white text-blue-600 shadow-sm ring-1 ring-black/5" 
+                      : "text-slate-400 hover:text-slate-600"
+                  )}
+                >
+                  Para Comprar
+                </button>
+                <button
+                  onClick={() => setBuyerTab('completed')}
+                  className={cn(
+                    "px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all",
+                    buyerTab === 'completed' 
+                      ? "bg-white text-emerald-600 shadow-sm ring-1 ring-black/5" 
+                      : "text-slate-400 hover:text-slate-600"
+                  )}
+                >
+                  Histórico / Concluídas
+                </button>
+              </div>
+
+              {/* Botão de exportação — visível apenas no histórico */}
+              {buyerTab === 'completed' && (
+                <button
+                  id="btn-exportar-passagens-emitidas"
+                  onClick={() => exportIssuedTicketsToExcel(requests)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 transition-all shadow-lg shadow-emerald-100 whitespace-nowrap"
+                  title="Exportar passagens emitidas para Excel (.xlsx)"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Exportar Passagens Emitidas
+                </button>
+              )}
             </div>
           )}
 
