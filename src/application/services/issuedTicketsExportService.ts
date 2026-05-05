@@ -1,12 +1,14 @@
 // ============================================================
 // APPLICATION — Serviço de Exportação: Relatório de Passagens
-// Gera um arquivo .xlsx com solicitações nos status:
+// Gera um arquivo .xlsx com UMA LINHA POR TRECHO de viagem.
+//
+// Cada segmento (TravelSegment) dentro de uma solicitação
+// origina uma linha independente na planilha, com seu próprio
+// valor orçado (priceQuote), origem, destino e data.
+//
+// Status incluídos:
 //   Disponível para compra | Aguardando aprovação de compra
 //   Emitida | Concluída
-//
-// Origem, destino, datas e rota são extraídos dos trechos
-// (travel.segments), com fallback em travel.requestedSegments
-// e, por último, nos campos diretos de travel.
 //
 // Não altera regras de negócio nem o modelo de dados.
 // ============================================================
@@ -21,17 +23,12 @@ import { getPassengerDisplayName } from '../../domain/travelRequest.rules';
 // Critérios de filtro
 // ──────────────────────────────────────────────
 
-/**
- * Status que devem aparecer no relatório.
- * Inclui tanto os valores de enum quanto os labels em português
- * para garantir compatibilidade com registros legados.
- */
 const ALLOWED_STATUSES = new Set<string>([
   RequestStatus.DISPONIVEL_PARA_COMPRA,
   RequestStatus.AGUARDANDO_APROVACAO_COMPRA,
   RequestStatus.EMITIDA,
   RequestStatus.CONCLUIDA,
-  // Labels em português (usados em documentos legados do Firestore)
+  // Labels em português para compatibilidade com registros legados
   'Disponível para compra',
   'Aguardando aprovação de compra',
   'Emitida',
@@ -46,11 +43,11 @@ function isRelevantRequest(request: TravelRequest): boolean {
 }
 
 // ──────────────────────────────────────────────
-// Helpers de extração de segmentos
+// Helpers de segmentos
 // ──────────────────────────────────────────────
 
 /**
- * Retorna os segmentos da viagem ordenados por `order`.
+ * Retorna os segmentos ordenados por `order`.
  * Fonte principal: travel.segments.
  * Fallback: travel.requestedSegments.
  */
@@ -60,159 +57,145 @@ function getSegments(request: TravelRequest): TravelSegment[] {
       ? request.travel.segments
       : request.travel?.requestedSegments ?? [];
 
-  return [...segments].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  return [...segments].sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
 }
 
-/**
- * Origem: primeiro trecho ordenado por `order`.
- * Fallback: travel.origin.
- */
-function getOrigin(request: TravelRequest): string {
-  const segments = getSegments(request);
-  return segments[0]?.origin || request.travel?.origin || '';
+/** Chapa do colaborador interno ou rótulo para externos. */
+function getChapa(request: TravelRequest): string {
+  if (request.employee?.passengerType === 'external') return 'Terceiro/Convidado';
+  if (request.employee?.passengerType === 'internal') return request.employee.chapa || '';
+  return '';
 }
 
-/**
- * Destino: último trecho de ida.
- * Se não houver trecho de ida, usa o último trecho por `order`.
- * Fallback: travel.destination.
- */
-function getDestination(request: TravelRequest): string {
-  const segments = getSegments(request);
-
-  const outbound = segments.filter((s) => s.direction === 'ida');
-  if (outbound.length > 0) {
-    return outbound[outbound.length - 1]?.destination || '';
-  }
-
-  return segments[segments.length - 1]?.destination || request.travel?.destination || '';
-}
-
-/**
- * Rota: encadeamento de origens/destinos sem duplicidade sequencial.
- * Ex: "Catanduva/SP → Campinas/SP → Salgueiro → Catanduva/SP"
- */
-function getRoute(request: TravelRequest): string {
-  const segments = getSegments(request);
-
-  if (!segments.length) {
-    const origin = request.travel?.origin || '';
-    const destination = request.travel?.destination || '';
-    return [origin, destination].filter(Boolean).join(' → ');
-  }
-
-  const points: string[] = [];
-  segments.forEach((seg, index) => {
-    if (index === 0 && seg.origin) {
-      points.push(seg.origin);
-    }
-    if (seg.destination) {
-      const lastPoint = points[points.length - 1];
-      if (seg.destination !== lastPoint) {
-        points.push(seg.destination);
-      }
-    }
-  });
-
-  return points.join(' → ');
-}
-
-/**
- * Data Ida: menor data de partida dos trechos com direction === 'ida'.
- * Fallback: primeiro departureDateTime ordenado por `order`.
- * Fallback final: travel.departureDateTime.
- */
-function getDepartureDate(request: TravelRequest): string {
-  const segments = getSegments(request);
-
-  const outbound = segments.filter((s) => s.direction === 'ida' && s.departureDateTime);
-  if (outbound.length > 0) {
-    return outbound[0].departureDateTime;
-  }
-
-  return (
-    segments.find((s) => s.departureDateTime)?.departureDateTime ||
-    request.travel?.departureDateTime ||
-    ''
-  );
-}
-
-/**
- * Data Volta: menor data de partida dos trechos com direction === 'volta'.
- * Se não houver trecho de volta, retorna string vazia (não preencher com data de ida).
- */
-function getReturnDate(request: TravelRequest): string {
-  const segments = getSegments(request);
-
-  const returnSegs = segments.filter((s) => s.direction === 'volta' && s.departureDateTime);
-  return returnSegs[0]?.departureDateTime || '';
-}
-
-/**
- * Modal: valores únicos de transportMode, sem duplicidade.
- * Ex: "Aéreo / Rodoviário"
- */
-function getTransportModes(request: TravelRequest): string {
-  const segments = getSegments(request);
-  const labels: Record<string, string> = {
-    aereo: 'Aéreo',
-    rodoviario: 'Rodoviário',
-  };
-
-  const unique = [...new Set(segments.map((s) => s.transportMode).filter(Boolean))];
-  return unique.map((m) => labels[m] ?? m).join(' / ');
-}
-
-/**
- * Companhia:
- * - Passagens emitidas → purchase.airline.
- * - Demais → airlineQuote únicos dos trechos.
- */
-function getAirlines(request: TravelRequest): string {
-  if (request.purchase?.airline) {
-    return request.purchase.airline;
-  }
-
-  const segments = getSegments(request);
-  const unique = [...new Set(segments.map((s) => s.airlineQuote).filter(Boolean))];
-  return unique.join(' / ');
-}
-
-/**
- * Valor Orçado: soma de priceQuote de todos os segmentos.
- */
-function getBudgetAmount(request: TravelRequest): number {
-  const segments = getSegments(request);
-  return segments.reduce((sum, s) => sum + (Number(s.priceQuote) || 0), 0);
-}
-
-/**
- * Valor Real da Passagem:
- * - Retorna o valor numérico quando existir.
- * - Retorna string vazia ('') quando não houver emissão, para
- *   não confundir valor inexistente com zero real.
- */
-function getRealTicketAmount(request: TravelRequest): number | '' {
-  return request.purchase?.price ?? '';
-}
+/** Tradução do modal de transporte. */
+const MODAL_LABELS: Record<string, string> = {
+  aereo: 'Aéreo',
+  rodoviario: 'Rodoviário',
+};
 
 // ──────────────────────────────────────────────
 // Formatação de data
 // ──────────────────────────────────────────────
 
 /**
- * Converte uma string ISO 8601 para o formato brasileiro dd/MM/yyyy.
- * Retorna string vazia para valores ausentes ou inválidos.
+ * Converte "YYYY-MM-DDTHH:mm" ou ISO completo → "dd/MM/yyyy".
+ * Parseia apenas a parte da data para evitar variação de fuso horário.
  */
 function formatDateBR(value?: string | null): string {
   if (!value) return '';
   try {
-    const date = new Date(value);
-    if (isNaN(date.getTime())) return '';
-    return format(date, 'dd/MM/yyyy');
+    const datePart = value.split('T')[0];
+    const [year, month, day] = datePart.split('-').map(Number);
+    if (!year || !month || !day) return '';
+    return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
   } catch {
     return '';
   }
+}
+
+// ──────────────────────────────────────────────
+// Mapeador de um segmento → linha do Excel
+// ──────────────────────────────────────────────
+
+/**
+ * Gera o descritivo resumido de um único trecho.
+ * Ex: "[Ida] GOIÂNIA-GO → JOÃO PESSOA-PB (06/05/2026)"
+ */
+function formatSegmentItinerary(seg: TravelSegment): string {
+  const dirLabel: Record<string, string> = { ida: 'Ida', volta: 'Volta' };
+  const dir = seg.direction ? `[${dirLabel[seg.direction] ?? seg.direction}] ` : '';
+  const route = [seg.origin, seg.destination].filter(Boolean).join(' → ');
+  const date = formatDateBR(seg.departureDateTime);
+  return `${dir}${route}${date ? ` (${date})` : ''}`;
+}
+
+interface ExcelRow {
+  Passageiro: string;
+  'Chapa / Vínculo': string;
+  'Centro de Custo': string;
+  Motivo: string;
+  Itinerário: string;
+  Origem: string;
+  Destino: string;
+  'Data Ida': string;
+  'Data Volta': string;
+  Modal: string;
+  Companhia: string;
+  'Valor Orçado': number;
+  'Valor Real da Passagem': number | '';
+  'Status da Passagem': string;
+}
+
+/**
+ * Expande uma solicitação em múltiplas linhas — uma por segmento.
+ *
+ * - "Valor Orçado" = priceQuote do segmento específico.
+ * - "Valor Real da Passagem" = purchase.price (total da compra),
+ *   exibido apenas na linha do primeiro segmento para evitar
+ *   duplicação ao somar na planilha.
+ * - "Data Ida" preenchida quando direction === 'ida'.
+ * - "Data Volta" preenchida quando direction === 'volta'.
+ */
+function expandRequestToRows(request: TravelRequest): ExcelRow[] {
+  const segments = getSegments(request);
+
+  // Solicitações sem segmentos (dados legados): gera uma linha com fallback
+  if (!segments.length) {
+    return [
+      {
+        Passageiro: getPassengerDisplayName(request),
+        'Chapa / Vínculo': getChapa(request),
+        'Centro de Custo': request.travel?.costCenter || '',
+        Motivo: request.travel?.reason || '',
+        Itinerário:
+          [request.travel?.origin, request.travel?.destination].filter(Boolean).join(' → '),
+        Origem: request.travel?.origin || '',
+        Destino: request.travel?.destination || '',
+        'Data Ida': formatDateBR(request.travel?.departureDateTime),
+        'Data Volta': formatDateBR(request.travel?.returnDateTime),
+        Modal: '',
+        Companhia: request.purchase?.airline || '',
+        'Valor Orçado': 0,
+        'Valor Real da Passagem': request.purchase?.price ?? '',
+        'Status da Passagem': request.status || '',
+      },
+    ];
+  }
+
+  // ── Uma linha por segmento ──
+  return segments.map((seg, index) => {
+    const isIdaDirection = !seg.direction || seg.direction === 'ida';
+
+    return {
+      Passageiro: getPassengerDisplayName(request),
+      'Chapa / Vínculo': getChapa(request),
+      'Centro de Custo': request.travel?.costCenter || '',
+      Motivo: request.travel?.reason || '',
+
+      // Descritivo resumido deste trecho específico
+      Itinerário: formatSegmentItinerary(seg),
+
+      Origem: seg.origin || '',
+      Destino: seg.destination || '',
+
+      // Data de partida do trecho na coluna correspondente à direção
+      'Data Ida': isIdaDirection ? formatDateBR(seg.departureDateTime) : '',
+      'Data Volta': seg.direction === 'volta' ? formatDateBR(seg.departureDateTime) : '',
+
+      Modal: MODAL_LABELS[seg.transportMode] ?? seg.transportMode ?? '',
+
+      // Companhia: emitida usa purchase.airline; cotação usa airlineQuote do trecho
+      Companhia: request.purchase?.airline || seg.airlineQuote || '',
+
+      // Valor orçado deste trecho específico
+      'Valor Orçado': Number(seg.priceQuote) || 0,
+
+      // Valor real apenas na 1ª linha para não inflar totais ao somar no Excel
+      'Valor Real da Passagem': index === 0 ? (request.purchase?.price ?? '') : '',
+
+      'Status da Passagem': request.status || '',
+    };
+  });
 }
 
 // ──────────────────────────────────────────────
@@ -221,12 +204,7 @@ function formatDateBR(value?: string | null): string {
 
 /**
  * Gera e faz download de um arquivo .xlsx com o relatório de passagens.
- *
- * Inclui solicitações com status:
- *   - Disponível para compra
- *   - Aguardando aprovação de compra
- *   - Emitida
- *   - Concluída
+ * Cada trecho de viagem origina uma linha independente na planilha.
  *
  * @param requests Lista completa de solicitações disponíveis na tela
  */
@@ -234,55 +212,35 @@ export function exportIssuedTicketsToExcel(requests: TravelRequest[]): void {
   // 1. Filtra pelos status relevantes
   const filtered = requests.filter(isRelevantRequest);
 
-  // 2. Mapeia as linhas com as colunas finais definidas
-  const rows = filtered.map((req) => ({
-    Passageiro: getPassengerDisplayName(req),
-    'Chapa / Vínculo':
-      req.employee?.passengerType === 'external'
-        ? 'Terceiro/Convidado'
-        : req.employee?.passengerType === 'internal'
-          ? req.employee.chapa || ''
-          : '',
-    'Centro de Custo': req.travel?.costCenter || '',
-    Motivo: req.travel?.reason || '',
-    Origem: getOrigin(req),
-    Destino: getDestination(req),
-    Rota: getRoute(req),
-    'Data Ida': formatDateBR(getDepartureDate(req)),
-    'Data Volta': formatDateBR(getReturnDate(req)),
-    Modal: getTransportModes(req),
-    Companhia: getAirlines(req),
-    'Valor Orçado': getBudgetAmount(req),
-    'Valor Real da Passagem': getRealTicketAmount(req),
-    'Status da Passagem': req.status || '',
-  }));
+  // 2. Expande cada solicitação em N linhas (uma por segmento)
+  const rows = filtered.flatMap(expandRequestToRows);
 
   // 3. Cria a planilha
   const worksheet = XLSX.utils.json_to_sheet(rows);
 
-  // 4. Larguras de coluna otimizadas
+  // 4. Larguras de coluna otimizadas (14 colunas)
   worksheet['!cols'] = [
     { wch: 30 }, // Passageiro
     { wch: 18 }, // Chapa / Vínculo
-    { wch: 18 }, // Centro de Custo
+    { wch: 42 }, // Centro de Custo
     { wch: 20 }, // Motivo
+    { wch: 52 }, // Itinerário
     { wch: 24 }, // Origem
     { wch: 24 }, // Destino
-    { wch: 48 }, // Rota
-    { wch: 14 }, // Data Ida
-    { wch: 14 }, // Data Volta
-    { wch: 16 }, // Modal
+    { wch: 13 }, // Data Ida
+    { wch: 13 }, // Data Volta
+    { wch: 14 }, // Modal
     { wch: 20 }, // Companhia
-    { wch: 16 }, // Valor Orçado
+    { wch: 15 }, // Valor Orçado
     { wch: 22 }, // Valor Real da Passagem
     { wch: 28 }, // Status da Passagem
   ];
 
-  // 5. Monta o workbook com aba nomeada
+  // 5. Monta o workbook
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Passagens');
 
-  // 6. Nome do arquivo com data de geração
+  // 6. Download com data de geração no nome
   const today = format(new Date(), 'yyyy-MM-dd');
   XLSX.writeFile(workbook, `passagens_emitidas_${today}.xlsx`);
 }
