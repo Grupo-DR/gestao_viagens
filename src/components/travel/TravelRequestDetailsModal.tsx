@@ -488,21 +488,20 @@ export function TravelRequestDetailsModal({
                 )}
 
                 {isRejectedPurchase && (
-                  <div className="flex items-center gap-4 bg-red-50 px-6 py-3 rounded-2xl border border-red-100">
-                    <ShieldAlert className="w-5 h-5 text-red-600" />
-                    <span className="text-xs font-bold text-red-800 italic uppercase">Compra recusada. Solicitação encerrada.</span>
-                    <button 
-                      onClick={() => handleAction(RequestStatus.CANCELADA)}
-                      className="text-[10px] font-black uppercase text-red-600 underline hover:no-underline ml-4"
-                    >
-                      Cancelar Solicitação
-                    </button>
+                  <div className="flex flex-col gap-3 bg-amber-50 px-6 py-4 rounded-2xl border border-amber-200">
+                    <div className="flex items-center gap-3">
+                      <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
+                      <span className="text-xs font-bold text-amber-900 uppercase tracking-wide">Compra Recusada pelo Setor de Compras</span>
+                    </div>
+                    <p className="text-xs text-amber-800 font-medium pl-8 leading-relaxed">
+                      Esta solicitação foi recusada. Você pode <strong>editar os dados e reenviar</strong> pelo botão de lápis na listagem — a solicitação retornará para avaliação do setor de Compras.
+                    </p>
                   </div>
                 )}
               </>
             )}
 
-            {!canApproveHR && !canBuy && (
+            {!canApproveHR && !canBuy && !canApprovePurchase && !canFinalizeEmission && (
                <button 
                  onClick={onClose}
                  className="px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-200 transition-all border border-slate-100"

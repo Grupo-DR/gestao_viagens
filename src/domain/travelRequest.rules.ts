@@ -112,6 +112,16 @@ export function getAvailableTransitions(
       allowed: [RequestStatus.EM_VALIDACAO_CH, RequestStatus.AGUARDANDO_APROVACAO_COMPRA],
       roles: [UserRole.MASTER, UserRole.ADMINISTRATIVO, UserRole.GESTOR],
     },
+    // Reprovada pelo CH — solicitante pode corrigir e reenviar para validação CH
+    [RequestStatus.REPROVADA]: {
+      allowed: [RequestStatus.EM_VALIDACAO_CH, RequestStatus.AGUARDANDO_APROVACAO_COMPRA],
+      roles: [UserRole.MASTER, UserRole.ADMINISTRATIVO, UserRole.GESTOR],
+    },
+    // Compra recusada — solicitante pode corrigir e reenviar para avaliação de Compras
+    [RequestStatus.COMPRA_RECUSADA]: {
+      allowed: [RequestStatus.AGUARDANDO_APROVACAO_COMPRA],
+      roles: [UserRole.MASTER, UserRole.ADMINISTRATIVO, UserRole.GESTOR],
+    },
     // CH aprova → Compras avalia; CH reprova → REPROVADA (definitivo)
     [RequestStatus.EM_VALIDACAO_CH]: {
       allowed: [RequestStatus.AGUARDANDO_APROVACAO_COMPRA, RequestStatus.REPROVADA],
@@ -130,11 +140,6 @@ export function getAvailableTransitions(
     // Comprador confirma emissão final (preenche dados reais do bilhete)
     [RequestStatus.EM_PROCESSO_DE_COMPRA]: {
       allowed: [RequestStatus.EMITIDA, RequestStatus.CANCELADA],
-      roles: [UserRole.MASTER, UserRole.COMPRADOR],
-    },
-    // Compra recusada — apenas cancelamento disponível (sem retorno ao solicitante)
-    [RequestStatus.COMPRA_RECUSADA]: {
-      allowed: [RequestStatus.CANCELADA],
       roles: [UserRole.MASTER, UserRole.COMPRADOR],
     },
   };
@@ -162,7 +167,7 @@ export function canTransitionStatus(
 
 /**
  * Verifica se o usuário pode editar o conteúdo da solicitação.
- * Apenas ADMINISTRATIVO/GESTOR pode editar, e somente em status editáveis.
+ * ADMINISTRATIVO, GESTOR e MASTER podem editar em status editáveis.
  */
 export function canEditRequest(
   status: RequestStatus,
@@ -171,9 +176,10 @@ export function canEditRequest(
   const editableStatuses: RequestStatus[] = [
     RequestStatus.RASCUNHO,
     RequestStatus.PENDENTE_CORRECAO,
-    RequestStatus.REPROVADA, // Permite editar para reenviar após reprova (opcional)
+    RequestStatus.REPROVADA,      // Permite editar e reenviar após reprova pelo CH
+    RequestStatus.COMPRA_RECUSADA, // Permite editar e reenviar após recusa do Comprador
   ];
-  const editableRoles: UserRole[] = [UserRole.ADMINISTRATIVO, UserRole.GESTOR];
+  const editableRoles: UserRole[] = [UserRole.MASTER, UserRole.ADMINISTRATIVO, UserRole.GESTOR];
   return editableStatuses.includes(status) && editableRoles.includes(role);
 }
 
