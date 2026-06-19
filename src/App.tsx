@@ -15,6 +15,7 @@ import { UnifiedDashboard as Dashboard } from './components/UnifiedDashboard';
 import { UserManagementPanel } from './components/admin/UserManagementPanel';
 import { EmployeeRayXPanel } from './components/employees/EmployeeRayXPanel';
 import { BudgetView } from './components/finance/BudgetView';
+import { AuditList } from './components/travel/AuditList'; // Aba de auditoria de prazos e conformidade
 import type { TravelRequest } from './domain/types';
 import { UserRole } from './domain/enums';
 
@@ -91,6 +92,8 @@ function AppContent() {
         return <EmployeeRayXPanel />;
       case 'orcamento':
         return <BudgetView />;
+      case 'audit':
+        return <AuditList />;
       default:
         return null;
     }

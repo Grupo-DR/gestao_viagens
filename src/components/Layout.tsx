@@ -7,7 +7,7 @@
 import React from 'react';
 import { UserRole } from '../domain/enums';
 import { useIdentity } from '../application/identity/IdentityContext';
-import { Plane, ShieldCheck, ShoppingCart, BarChart3, LogOut, User as UserIcon, Users, Shield, DollarSign } from 'lucide-react';
+import { Plane, ShieldCheck, ShoppingCart, BarChart3, LogOut, User as UserIcon, Users, Shield, DollarSign, ClipboardCheck } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 // ──────────────────────────────────────────────
@@ -57,6 +57,12 @@ const MENU_ITEMS = [
     icon: DollarSign,
     roles: [UserRole.MASTER], // Exclusivo MASTER
   },
+  {
+    id: 'audit' as const,
+    label: 'Auditoria',
+    icon: ClipboardCheck,
+    roles: [UserRole.MASTER], // Exclusivo MASTER + Leandro
+  },
 ] as const;
 
 export type AppTab = (typeof MENU_ITEMS)[number]['id'];
@@ -98,9 +104,12 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
 
   if (!currentUser) return null;
 
-  const filteredMenu = MENU_ITEMS.filter((item) =>
-    (item.roles as readonly UserRole[]).includes(currentUser.role)
-  );
+  const filteredMenu = MENU_ITEMS.filter((item) => {
+    if (item.id === 'audit') {
+      return currentUser.role === UserRole.MASTER || currentUser.email === 'leandro.carvalho@grupodr.com.br';
+    }
+    return (item.roles as readonly UserRole[]).includes(currentUser.role);
+  });
 
   const isMaster = currentUser.role === UserRole.MASTER;
 
@@ -129,7 +138,7 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
         {/* Navegação */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {filteredMenu.map((item) => {
-            const isMasterTab = item.id === 'usuarios';
+            const isMasterTab = item.id === 'usuarios' || item.id === 'orcamento' || item.id === 'audit';
             return (
               <button
                 key={item.id}
