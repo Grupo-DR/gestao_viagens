@@ -18,7 +18,7 @@ import {
 import * as XLSX from 'xlsx';
 import { useTravelRequests } from '../../application/hooks/useTravelRequests';
 import { useIdentity } from '../../application/identity/IdentityContext';
-import { useEmployeeRayX } from '../../application/hooks/useEmployeeRayX';
+import { useEmployeeRayX, EmployeeRayXData } from '../../application/hooks/useEmployeeRayX';
 import { RequestStatus, UserRole, TravelReason } from '../../domain/enums';
 import type { TravelRequest } from '../../domain/types';
 import {
@@ -75,12 +75,12 @@ export function AuditList() {
   const { requests, loading, error, isDemoMode } = useTravelRequests({
     view: 'all',
     userId: currentUser?.uid,
-    user: currentUser,
+    user: currentUser || undefined,
   });
 
   // 1. Filtrar apenas motivos de afastamento (leaveRequests)
   const leaveRequests = useMemo(() => {
-    return requests.filter((r) => {
+    return requests.filter((r: TravelRequest) => {
       const reason = r.travel?.reason;
       return (
         reason === TravelReason.FOLGA ||
@@ -92,7 +92,7 @@ export function AuditList() {
 
   // 2. Pré-filtrar por status e motivo para a contagem de políticas
   const preFilteredRequests = useMemo(() => {
-    return leaveRequests.filter((r) => {
+    return leaveRequests.filter((r: TravelRequest) => {
       const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
       const matchesReason = reasonFilter === 'all' || r.travel.reason === reasonFilter;
       return matchesStatus && matchesReason;
@@ -109,7 +109,7 @@ export function AuditList() {
       IDEAL: 0,
       REGULAR: 0,
     };
-    preFilteredRequests.forEach((r) => {
+    preFilteredRequests.forEach((r: TravelRequest) => {
       const policy = getPurchasePolicyStatus(r).category;
       if (policy in counts) {
         counts[policy]++;
@@ -138,7 +138,7 @@ export function AuditList() {
 
   // 4. Filtrar finalmente por política para a tabela/excel
   const filteredRequests = useMemo(() => {
-    return preFilteredRequests.filter((r) => {
+    return preFilteredRequests.filter((r: TravelRequest) => {
       if (!selectedPolicy) return true;
       return getPurchasePolicyStatus(r).category === selectedPolicy;
     });
@@ -155,7 +155,7 @@ export function AuditList() {
     if (!isLeaveReason) return '—';
 
     // Tentar localizar colaborador na lista de Riscos
-    const emp = employeeData.find(e => {
+    const emp = employeeData.find((e: EmployeeRayXData) => {
       const rName = getPassengerDisplayName(r).toLowerCase().trim();
       const eName = e.name.toLowerCase().trim();
       return (
@@ -234,6 +234,7 @@ export function AuditList() {
       purchaseInfo?: any,
       updatedSegments?: any
     ) => {
+      if (!currentUser) return;
       setActionLoading(true);
       try {
         await changeRequestStatus(
@@ -259,7 +260,7 @@ export function AuditList() {
 
   // Exportação Excel específica de Auditoria
   const handleExportExcel = () => {
-    const rows = filteredRequests.map((r) => {
+    const rows = filteredRequests.map((r: TravelRequest) => {
       const hrDetails = getHrValidationDetails(r);
       const queueDate = getPurchaseQueueDate(r);
       const releaseDate = getPurchaseReleasedDate(r);
@@ -482,7 +483,7 @@ export function AuditList() {
           <label className="block mb-1 text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Motivo da Viagem</label>
           <select
             value={reasonFilter}
-            onChange={(e) => setReasonFilter(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setReasonFilter(e.target.value)}
             className="w-full bg-transparent border-none outline-none text-xs font-black text-slate-700 appearance-none cursor-pointer"
           >
             <option value="all">Todos os Motivos</option>
@@ -501,7 +502,7 @@ export function AuditList() {
           <label className="block mb-1 text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Status da Solicitação</label>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStatusFilter(e.target.value)}
             className="w-full bg-transparent border-none outline-none text-xs font-black text-slate-700 appearance-none cursor-pointer"
           >
             <option value="all">Todos os Status</option>
@@ -579,7 +580,7 @@ export function AuditList() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 font-medium text-slate-700">
-                {filteredRequests.map((r) => {
+                {filteredRequests.map((r: TravelRequest) => {
                   const hrDetails = getHrValidationDetails(r);
                   const submissionDate = getSubmissionDate(r);
                   const queueDate = getPurchaseQueueDate(r);
