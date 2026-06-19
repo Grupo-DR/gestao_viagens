@@ -18,6 +18,7 @@ import {
 import * as XLSX from 'xlsx';
 import { useTravelRequests } from '../../application/hooks/useTravelRequests';
 import { useIdentity } from '../../application/identity/IdentityContext';
+import { useEmployeeRayX } from '../../application/hooks/useEmployeeRayX';
 import { RequestStatus, UserRole, TravelReason } from '../../domain/enums';
 import type { TravelRequest } from '../../domain/types';
 import {
@@ -57,6 +58,9 @@ function formatAuditDate(dateStr?: string | null): string {
 
 export function AuditList() {
   const { currentUser } = useIdentity();
+  
+  // Carregar dados de riscos dos colaboradores (RM TOTVS) para cruzamento de datas
+  const { data: employeeData } = useEmployeeRayX();
   
   // Filtros
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -140,6 +144,87 @@ export function AuditList() {
     });
   }, [preFilteredRequests, selectedPolicy]);
 
+  // Resolutor de período de afastamento cruzando com a Gestão de Riscos (RM)
+  const getLeavePeriodResolved = useCallback((r: TravelRequest) => {
+    const reason = r.travel?.reason;
+    const isLeaveReason =
+      reason === TravelReason.FOLGA ||
+      reason === TravelReason.FERIAS ||
+      reason === TravelReason.FOLGA_FERIAS;
+
+    if (!isLeaveReason) return '—';
+
+    // Tentar localizar colaborador na lista de Riscos
+    const emp = employeeData.find(e => {
+      const rName = getPassengerDisplayName(r).toLowerCase().trim();
+      const eName = e.name.toLowerCase().trim();
+      return (
+        (r.employee.passengerType === 'internal' && e.chapa === r.employee.chapa) ||
+        eName === rName ||
+        eName.includes(rName) ||
+        rName.includes(eName)
+      );
+    });
+
+    if (emp) {
+      if (reason === TravelReason.FOLGA) {
+        if (emp.predictedTimeOff) {
+          try {
+            const parts = emp.predictedTimeOff.split('T')[0].split('-');
+            if (parts.length === 3) {
+              return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+            return emp.predictedTimeOff;
+          } catch {
+            return emp.predictedTimeOff;
+          }
+        }
+      } else if (reason === TravelReason.FERIAS) {
+        if (emp.programmedStart) {
+          try {
+            const formatPart = (dateStr: string) => {
+              const parts = dateStr.split('T')[0].split('-');
+              return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dateStr;
+            };
+            const startFmt = formatPart(emp.programmedStart);
+            if (emp.programmedEnd) {
+              return `${startFmt} a ${formatPart(emp.programmedEnd)}`;
+            }
+            return startFmt;
+          } catch {
+            return emp.programmedStart;
+          }
+        }
+      } else if (reason === TravelReason.FOLGA_FERIAS) {
+        if (emp.programmedStart) {
+          try {
+            const formatPart = (dateStr: string) => {
+              const parts = dateStr.split('T')[0].split('-');
+              return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dateStr;
+            };
+            const startFmt = formatPart(emp.programmedStart);
+            if (emp.programmedEnd) {
+              return `${startFmt} a ${formatPart(emp.programmedEnd)}`;
+            }
+            return startFmt;
+          } catch {}
+        }
+        if (emp.predictedTimeOff) {
+          try {
+            const parts = emp.predictedTimeOff.split('T')[0].split('-');
+            if (parts.length === 3) {
+              return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+            return emp.predictedTimeOff;
+          } catch {}
+        }
+      }
+    }
+
+    // Fallback para o período original da solicitação
+    return formatLeavePeriod(r);
+  }, [employeeData]);
+
   // Handler de atualização de status (caso precise agir por dentro da ficha a partir da auditoria)
   const handleStatusUpdate = useCallback(
     async (
@@ -188,7 +273,7 @@ export function AuditList() {
         'Centro de Custo': r.travel.costCenter,
         'Motivo': r.travel.reason,
         'Itinerário': formatRoute(r),
-        'Afastamento / Férias': formatLeavePeriod(r),
+        'Afastamento / Férias': getLeavePeriodResolved(r),
         'Política de Compra': `${getPurchasePolicyStatus(r).label} (${getPurchasePolicyStatus(r).sub})`,
         'Data Solicitação': formatAuditDate(getSubmissionDate(r)),
         'Passou pelo CH?': r.validation.validationRequired ? 'Sim' : 'Não',
@@ -530,10 +615,10 @@ export function AuditList() {
                       {/* Motivo / Afastamento */}
                       <td className="px-6 py-4">
                         <div className="text-xs text-slate-700 font-bold">{r.travel.reason}</div>
-                        {formatLeavePeriod(r) !== '—' ? (
+                        {getLeavePeriodResolved(r) !== '—' ? (
                           <div className="mt-1.5 text-[10px] text-slate-500 font-medium flex items-center gap-1 bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-lg w-fit">
                             <Calendar className="w-3 h-3 text-slate-400" />
-                            <span>{formatLeavePeriod(r)}</span>
+                            <span>{getLeavePeriodResolved(r)}</span>
                           </div>
                         ) : (
                           <div className="text-[10px] text-slate-300 mt-1.5 italic">—</div>
