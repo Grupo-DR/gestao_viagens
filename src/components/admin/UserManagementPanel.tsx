@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Shield, Users, Pencil, Check, X, Loader2,
-  ChevronDown, AlertTriangle, Clock, UserPlus, Unlock
+  ChevronDown, AlertTriangle, Clock, UserPlus, Unlock, KeyRound, Copy
 } from 'lucide-react';
 import { UserRole } from '../../domain/enums';
 import {
@@ -12,6 +12,8 @@ import {
 } from '../../application/services/userManagementService';
 import { CostCenterCheckboxList } from './CostCenterCheckboxList';
 import { cn } from '../../lib/utils';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../../firebase';
 
 // ──────────────────────────────────────────────
 // Config visual por papel
@@ -44,9 +46,11 @@ interface ActiveUserRowProps {
   user: ManagedUser;
   onSave: (uid: string, role: UserRole, ccs: string[]) => Promise<void>;
   saving: string | null;
+  onGenerateLink: (uid: string, email: string, name: string) => void;
+  isGeneratingLink: boolean;
 }
 
-function ActiveUserRow({ user, onSave, saving }: ActiveUserRowProps) {
+function ActiveUserRow({ user, onSave, saving, onGenerateLink, isGeneratingLink }: ActiveUserRowProps) {
   const [editState, setEditState] = useState<EditState | null>(null);
   const isEditing = editState !== null;
   const isSaving = saving === user.uid;
@@ -153,10 +157,17 @@ function ActiveUserRow({ user, onSave, saving }: ActiveUserRowProps) {
               </button>
             </>
           ) : (
-            <button onClick={startEdit}
-              className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 hover:border-slate-300 transition-all">
-              <Pencil className="w-3 h-3" /> Editar
-            </button>
+            <>
+              <button onClick={() => onGenerateLink(user.uid, user.email, user.name)} disabled={isGeneratingLink}
+                className="flex items-center justify-center p-2 border border-slate-200 text-slate-400 rounded-xl hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200 transition-all disabled:opacity-50"
+                title="Gerar link de redefinição de senha">
+                {isGeneratingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+              </button>
+              <button onClick={startEdit}
+                className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 hover:border-slate-300 transition-all">
+                <Pencil className="w-3 h-3" /> Editar
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -251,6 +262,12 @@ export function UserManagementPanel() {
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Modal de Link de Redefinição
+  const [linkModal, setLinkModal] = useState<{isOpen: boolean; link: string; targetName: string}>({
+      isOpen: false, link: '', targetName: ''
+  });
+  const [generatingLink, setGeneratingLink] = useState<string | null>(null);
+
   // Pré-cadastro
   const [showPreRegister, setShowPreRegister] = useState(false);
   const [preEmail, setPreEmail] = useState('');
@@ -281,6 +298,21 @@ export function UserManagementPanel() {
       setError('Falha ao salvar. Verifique as permissões do Firestore.');
     } finally {
       setSaving(null);
+    }
+  };
+
+  const handleGeneratePasswordResetLink = async (uid: string, email: string, name: string) => {
+    if (!window.confirm(`Gerar link de redefinição de senha para ${name}?`)) return;
+    setGeneratingLink(uid);
+    try {
+        const resetPassword = httpsCallable(functions, 'adminGeneratePasswordResetLink');
+        const result = await resetPassword({ email });
+        const link = (result.data as any).link;
+        setLinkModal({ isOpen: true, link, targetName: name });
+    } catch (err: any) {
+        setError(err.message || 'Erro ao gerar link de redefinição');
+    } finally {
+        setGeneratingLink(null);
     }
   };
 
@@ -438,11 +470,70 @@ export function UserManagementPanel() {
         ) : (
           <div className="divide-y divide-slate-50">
             {activeUsers.map(user => (
-              <ActiveUserRow key={user.uid} user={user} onSave={handleSave} saving={saving} />
+              <ActiveUserRow 
+                key={user.uid} 
+                user={user} 
+                onSave={handleSave} 
+                saving={saving}
+                onGenerateLink={handleGeneratePasswordResetLink}
+                isGeneratingLink={generatingLink === user.uid}
+              />
             ))}
           </div>
         )}
       </div>
+
+      {/* Modal do Link de Redefinição */}
+      {linkModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600">
+                            <KeyRound className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <h3 className="font-black text-slate-900">Link Gerado</h3>
+                            <p className="text-xs font-medium text-slate-500">Para {linkModal.targetName}</p>
+                        </div>
+                    </div>
+                    <button onClick={() => setLinkModal({ isOpen: false, link: '', targetName: '' })} className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-400">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+                <div className="p-6 space-y-4 bg-slate-50/50">
+                    <p className="text-sm text-slate-600 font-medium">
+                        Copie o link abaixo e envie para o usuário. Ele poderá escolher uma nova senha de forma segura.
+                    </p>
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            readOnly
+                            value={linkModal.link}
+                            className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 outline-none truncate"
+                        />
+                        <button
+                            onClick={() => {
+                                navigator.clipboard.writeText(linkModal.link);
+                                alert('Link copiado para a área de transferência!');
+                            }}
+                            className="flex items-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800 transition-all shrink-0"
+                        >
+                            <Copy className="w-4 h-4" /> Copiar
+                        </button>
+                    </div>
+                </div>
+                <div className="p-6 border-t border-slate-100">
+                    <button
+                        onClick={() => setLinkModal({ isOpen: false, link: '', targetName: '' })}
+                        className="w-full px-4 py-3 bg-slate-100 text-slate-700 rounded-xl text-sm font-black hover:bg-slate-200 transition-all"
+                    >
+                        Fechar
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 }
