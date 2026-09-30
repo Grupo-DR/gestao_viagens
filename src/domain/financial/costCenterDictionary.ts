@@ -49,6 +49,7 @@ export const COST_CENTER_DICTIONARY: Record<string, string> = {
   '3044.02': '3044.02 - INFRANORTE - ARARAQUARA',
   '3045.01': '3045.01 - RUMO PATIO CATANDUVA - CATIGUA',
   '3044.03': '3044.03 - LIMPEZA DE LASTRO ZMA/ZDZ',
+  '3047.01': '3047.01 VALE - MANUTENCAO DE ATIVOS'
 };
 
 // Mapa normalizado (chave técnica -> label) para busca em O(1)
