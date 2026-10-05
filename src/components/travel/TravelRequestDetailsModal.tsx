@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { 
   X, CheckCircle, ShieldAlert, ShoppingCart, Loader2, Mail, 
-  Plane, Bus, MapPin, Luggage, XCircle 
+  MapPin, Luggage, XCircle
 } from 'lucide-react';
-import { TravelRequest, PurchaseInfo, TravelSegment } from '../../domain/types.ts';
+import { TravelRequest, PurchaseInfo, TravelSegment, TravelDirection } from '../../domain/types.ts';
+import { sortItinerary } from '../../domain/travelSegment.helpers';
+import { getDirectionTheme } from './directionTheme.ts';
+import { SegmentBadge, StaySeparator, TransportModeIcon } from './ItineraryVisuals.tsx';
 import { RequestStatus, UserRole } from '../../domain/enums.ts';
 import { getPassengerDisplayName, formatRoute } from '../../domain/travelRequest.rules.ts';
 import { PolicyDecisionPanel } from './PolicyDecisionPanel.tsx';
@@ -79,6 +82,83 @@ export function TravelRequestDetailsModal({
       updatedSegments
     );
     if (success) onClose();
+  };
+
+  const itinerarySegments: TravelSegment[] = sortItinerary(request.travel.segments || (request as any).segments || []);
+
+  /** Bloco do itinerário com a identidade visual do sentido (directionTheme). */
+  const renderItineraryBlock = (direction: TravelDirection) => {
+    const theme = getDirectionTheme(direction);
+    const Icon = theme.icon;
+    const items = itinerarySegments.filter(s => (s.direction === 'volta' ? 'volta' : 'ida') === direction);
+    const emptyMessage = direction === 'ida'
+      ? 'Nenhum trecho de ida informado'
+      : request.travel.tripType === 'somente_ida' ? 'Viagem somente de ida' : 'Nenhum trecho de volta solicitado';
+
+    return (
+      <section className={cn('rounded-[32px] border-2 p-6 space-y-5', theme.panelClass)}>
+        <div className="flex items-center gap-3">
+          <span className={cn('w-9 h-9 rounded-xl flex items-center justify-center shadow-md', theme.badgeClass)}>
+            <Icon className="w-4 h-4" />
+          </span>
+          <h4 className={cn('text-xs font-black uppercase tracking-[0.2em]', theme.titleClass)}>Itinerário de {theme.label}</h4>
+        </div>
+
+        <div className="space-y-3">
+          {items.length > 0 ? items.map((seg, idx) => (
+            <div
+              key={seg.id}
+              className={cn('bg-white rounded-2xl p-5 border border-slate-100 border-l-4 flex items-center justify-between gap-6 shadow-sm', theme.cardAccentClass)}
+            >
+              <div className="flex items-center gap-4 flex-1">
+                <SegmentBadge direction={direction} position={idx + 1} />
+                <div className="flex-1">
+                  <p className="text-xs font-bold text-slate-800">{seg.origin} → {seg.destination}</p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <div className="flex items-center gap-1">
+                      <TransportModeIcon mode={seg.transportMode} className="w-3 h-3" />
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">{seg.transportMode}</span>
+                    </div>
+                    <span className="text-[9px] font-bold text-slate-300">|</span>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase">{seg.originTerminal}</p>
+                    {seg.baggageRequired && (
+                      <>
+                        <span className="text-[9px] font-bold text-slate-300">|</span>
+                        <div className="flex items-center gap-1 text-slate-600">
+                          <Luggage className="w-3 h-3" />
+                          <span className="text-[9px] font-black uppercase tracking-tighter">C/ Bagagem</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-10">
+                <div className="text-right">
+                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Partida</label>
+                  <p className="text-[10px] font-black text-slate-700">{dateService.formatDateTimeSafe(seg.departureDateTime)}</p>
+                </div>
+                <div className="text-right">
+                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Chegada</label>
+                  <p className="text-[10px] font-black text-slate-700">{dateService.formatDateTimeSafe(seg.arrivalDateTime)}</p>
+                </div>
+                <div className="text-right w-24">
+                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Cia / Valor</label>
+                  <p className="text-[10px] font-bold text-slate-600 truncate">{seg.airlineQuote}</p>
+                  <p className="text-[10px] font-black text-blue-600">{seg.priceQuote ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(seg.priceQuote) : '—'}</p>
+                </div>
+              </div>
+            </div>
+          )) : (
+            <div className="p-6 border-2 border-dashed border-slate-200 bg-white/60 rounded-[24px] flex flex-col items-center justify-center gap-2">
+              <MapPin className="w-6 h-6 text-slate-300" />
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest italic">{emptyMessage}</p>
+            </div>
+          )}
+        </div>
+      </section>
+    );
   };
 
   return (
@@ -178,130 +258,32 @@ export function TravelRequestDetailsModal({
             </section>
           )}
 
-          {/* 3. TÓPICO: ITINERÁRIO DE IDA */}
-          <section className="space-y-6">
-             <div className="flex items-center gap-3">
-                <div className="w-1.5 h-6 bg-emerald-500 rounded-full" />
-                <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest italic">Itinerário de Ida</h4>
-             </div>
-             
-             <div className="space-y-4 pl-4">
-                {(request.travel.segments || (request as any).segments || [])
-                  .filter((s: any) => s.direction === 'ida')
-                  .map((seg: any, idx: number) => (
-                    <div key={seg.id} className="bg-slate-50/50 rounded-2xl p-5 border border-slate-100 flex items-center justify-between gap-6 hover:border-emerald-100 transition-colors shadow-sm">
-                      <div className="flex items-center gap-4 flex-1">
-                        <div className="w-8 h-8 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400">
-                          {idx + 1}
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs font-bold text-slate-800">{seg.origin} → {seg.destination}</p>
-                            <div className="flex items-center gap-3 mt-1">
-                               <div className="flex items-center gap-1">
-                                 {seg.transportMode === 'aereo' ? <Plane className="w-3 h-3 text-blue-500" /> : <Bus className="w-3 h-3 text-emerald-500" />}
-                                 <span className="text-[9px] font-bold text-slate-400 uppercase">{seg.transportMode}</span>
-                               </div>
-                               <span className="text-[9px] font-bold text-slate-300">|</span>
-                               <p className="text-[9px] text-slate-400 font-bold uppercase">{seg.originTerminal}</p>
-                               {seg.baggageRequired && (
-                                 <>
-                                   <span className="text-[9px] font-bold text-slate-300">|</span>
-                                   <div className="flex items-center gap-1 text-indigo-500">
-                                      <Luggage className="w-3 h-3" />
-                                      <span className="text-[9px] font-black uppercase tracking-tighter">C/ Bagagem</span>
-                                   </div>
-                                 </>
-                               )}
-                            </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-10">
-                        <div className="text-right">
-                          <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Partida</label>
-                          <p className="text-[10px] font-black text-slate-700">{dateService.formatDateTimeSafe(seg.departureDateTime)}</p>
-                        </div>
-                        <div className="text-right">
-                          <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Chegada</label>
-                          <p className="text-[10px] font-black text-slate-700">{dateService.formatDateTimeSafe(seg.arrivalDateTime)}</p>
-                        </div>
-                        <div className="text-right w-24">
-                          <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Cia / Valor</label>
-                          <p className="text-[10px] font-bold text-slate-600 truncate">{seg.airlineQuote}</p>
-                          <p className="text-[10px] font-black text-blue-600">{seg.priceQuote ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(seg.priceQuote) : '—'}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-             </div>
-          </section>
-
-          {/* 4. TÓPICO: ITINERÁRIO DE VOLTA */}
-          <section className="space-y-6">
-             <div className="flex items-center gap-3">
-                <div className="w-1.5 h-6 bg-orange-500 rounded-full" />
-                <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest italic">Itinerário de Volta</h4>
-             </div>
-             
-             <div className="space-y-4 pl-4">
-                {(request.travel.segments || (request as any).segments || [])
-                  .filter((s: any) => s.direction === 'volta')
-                  .length > 0 ? (
-                    (request.travel.segments || (request as any).segments || [])
-                    .filter((s: any) => s.direction === 'volta')
-                    .map((seg: any, idx: number) => (
-                      <div key={seg.id} className="bg-slate-50/50 rounded-2xl p-5 border border-slate-100 flex items-center justify-between gap-6 hover:border-orange-100 transition-colors shadow-sm">
-                        <div className="flex items-center gap-4 flex-1">
-                          <div className="w-8 h-8 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400">
-                            {idx + 1}
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-xs font-bold text-slate-800">{seg.origin} → {seg.destination}</p>
-                            <div className="flex items-center gap-3 mt-1">
-                               <div className="flex items-center gap-1">
-                                 {seg.transportMode === 'aereo' ? <Plane className="w-3 h-3 text-blue-500" /> : <Bus className="w-3 h-3 text-emerald-500" />}
-                                 <span className="text-[9px] font-bold text-slate-400 uppercase">{seg.transportMode}</span>
-                               </div>
-                               <span className="text-[9px] font-bold text-slate-300">|</span>
-                               <p className="text-[9px] text-slate-400 font-bold uppercase">{seg.originTerminal}</p>
-                               {seg.baggageRequired && (
-                                 <>
-                                   <span className="text-[9px] font-bold text-slate-300">|</span>
-                                   <div className="flex items-center gap-1 text-indigo-500">
-                                      <Luggage className="w-3 h-3" />
-                                      <span className="text-[9px] font-black uppercase tracking-tighter">C/ Bagagem</span>
-                                   </div>
-                                 </>
-                               )}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-10">
-                          <div className="text-right">
-                            <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Partida</label>
-                            <p className="text-[10px] font-black text-slate-700">{dateService.formatDateTimeSafe(seg.departureDateTime)}</p>
-                          </div>
-                          <div className="text-right">
-                            <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Chegada</label>
-                            <p className="text-[10px] font-black text-slate-700">{dateService.formatDateTimeSafe(seg.arrivalDateTime)}</p>
-                          </div>
-                          <div className="text-right w-24">
-                            <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Cia / Valor</label>
-                            <p className="text-[10px] font-bold text-slate-600 truncate">{seg.airlineQuote}</p>
-                            <p className="text-[10px] font-black text-blue-600">{seg.priceQuote ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(seg.priceQuote) : '—'}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="p-8 border-2 border-dashed border-slate-100 rounded-[32px] flex flex-col items-center justify-center gap-2 opacity-50">
-                       <MapPin className="w-6 h-6 text-slate-300" />
-                       <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest italic">Nenhum trecho de volta solicitado</p>
-                    </div>
+          {/* 2.1 ALERTAS DO ITINERÁRIO (justificados pelo solicitante no envio) */}
+          {request.travel.itineraryWarnings && request.travel.itineraryWarnings.length > 0 && (
+            <section className="space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="w-1.5 h-6 bg-amber-500 rounded-full" />
+                <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest italic">Alertas do Itinerário</h4>
+              </div>
+              <div className="pl-4">
+                <div className="bg-amber-50/60 p-5 rounded-[28px] border border-amber-100 space-y-3">
+                  <ul className="space-y-1.5 pl-5 list-disc text-xs font-semibold text-amber-900">
+                    {request.travel.itineraryWarnings.map((warning, idx) => <li key={idx}>{warning}</li>)}
+                  </ul>
+                  {request.travel.itineraryJustification && (
+                    <p className="text-sm text-slate-700 font-semibold leading-relaxed whitespace-pre-wrap italic border-t border-amber-100 pt-3">
+                      "{request.travel.itineraryJustification}"
+                    </p>
                   )}
-             </div>
-          </section>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* 3. ITINERÁRIO: Ida · Estadia · Volta (identidade visual em directionTheme) */}
+          {renderItineraryBlock('ida')}
+          <StaySeparator segments={itinerarySegments} />
+          {renderItineraryBlock('volta')}
 
           {/* 5. TÓPICO: POLÍTICAS APLICADAS */}
           {true && (

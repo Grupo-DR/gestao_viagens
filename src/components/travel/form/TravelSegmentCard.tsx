@@ -2,12 +2,15 @@ import React from 'react';
 import { Plane, Bus, Trash2, MapPin, Calendar, Luggage, AlertCircle } from 'lucide-react';
 import { TravelSegment } from '../../../domain/types.ts';
 import { cn } from '../../../lib/utils.ts';
+import { getDirectionTheme } from '../directionTheme.ts';
+import { SegmentBadge } from '../ItineraryVisuals.tsx';
 
 interface TravelSegmentCardProps {
   key?: string | number;
   segment: TravelSegment;
-  index: number;
-  totalSegments: number;
+  /** Posição do trecho dentro do seu bloco (Ida ou Volta), a partir de 1 */
+  position: number;
+  canRemove: boolean;
   errors?: string[]; // Erros de validação deste trecho
   onUpdate: <K extends keyof TravelSegment>(id: string, field: K, value: TravelSegment[K]) => void;
   onRemove: (id: string) => void;
@@ -21,67 +24,47 @@ const ERROR_INPUT_CLASS = 'border-red-300 bg-red-50/10 focus:ring-red-500 focus:
 /**
  * TravelSegmentCard (Sprint Final - Multimodal Hardened)
  * Exibe os campos de um trecho individual, incluindo agora a cotação obrigatória por trecho.
+ * O sentido (Ida/Volta) é definido pelo bloco em que o card está, não por seleção no card.
  */
-export function TravelSegmentCard({ 
-  segment, 
-  index, 
-  totalSegments, 
+export function TravelSegmentCard({
+  segment,
+  position,
+  canRemove,
   errors = [],
-  onUpdate, 
-  onRemove 
+  onUpdate,
+  onRemove
 }: TravelSegmentCardProps) {
   const isAir = segment.transportMode === 'aereo';
+  const theme = getDirectionTheme(segment.direction);
   const hasErrors = errors.length > 0;
 
   return (
     <div className={cn(
-      "relative bg-white rounded-[32px] border-2 p-8 shadow-sm transition-all animate-in zoom-in-95 duration-300",
-      hasErrors ? "border-red-100 shadow-red-50/50" : "border-slate-100 hover:shadow-md"
+      "relative bg-white rounded-[32px] border-2 border-l-[6px] p-8 shadow-sm transition-all animate-in zoom-in-95 duration-300",
+      theme.cardAccentClass,
+      hasErrors ? "border-red-200 ring-2 ring-red-100" : "border-slate-100 hover:shadow-md"
     )}>
-      
+
       {/* Header do Trecho */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-          <div className={cn(
-            "w-10 h-10 rounded-full flex items-center justify-center font-black text-sm shadow-lg",
-            hasErrors ? "bg-red-500 text-white" : "bg-slate-900 text-white"
-          )}>
-            {segment.order}
-          </div>
+          <SegmentBadge
+            direction={segment.direction}
+            position={position}
+            className={cn("w-11 h-11 text-sm rounded-full shadow-lg", hasErrors && "bg-red-500 shadow-red-200")}
+          />
           <div>
-            <h4 className="font-black text-xs uppercase tracking-widest text-slate-400">Trecho da Viagem</h4>
+            <h4 className={cn("font-black text-xs uppercase tracking-widest", theme.accentTextClass)}>
+              Trecho de {theme.label}
+            </h4>
             <div className="flex items-center gap-2 mt-0.5">
-               {isAir ? <Plane className="w-4 h-4 text-blue-500" /> : <Bus className="w-4 h-4 text-emerald-500" />}
+               {isAir ? <Plane className="w-4 h-4 text-slate-500" /> : <Bus className="w-4 h-4 text-slate-500" />}
                <span className="text-sm font-bold text-slate-700">itinerário {isAir ? 'Aéreo' : 'Rodoviário'}</span>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Seletor de Sentido (Ida/Volta) */}
-          <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-100 shadow-inner mr-2">
-            <button 
-              type="button"
-              onClick={() => onUpdate(segment.id, 'direction', 'ida')}
-              className={cn(
-                "px-4 py-2 rounded-xl text-[9px] font-black tracking-widest transition-all uppercase",
-                segment.direction === 'ida' ? "bg-white text-blue-600 shadow-sm" : "text-slate-300 hover:text-slate-500"
-              )}
-            >
-              Ida
-            </button>
-            <button 
-              type="button"
-              onClick={() => onUpdate(segment.id, 'direction', 'volta')}
-              className={cn(
-                "px-4 py-2 rounded-xl text-[9px] font-black tracking-widest transition-all uppercase",
-                segment.direction === 'volta' ? "bg-white text-purple-600 shadow-sm" : "text-slate-300 hover:text-slate-500"
-              )}
-            >
-              Volta
-            </button>
-          </div>
-
           {/* Seletor de Modal */}
           <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner">
             <button 
@@ -89,7 +72,7 @@ export function TravelSegmentCard({
               onClick={() => onUpdate(segment.id, 'transportMode', 'aereo')}
               className={cn(
                 "px-4 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all uppercase flex items-center gap-2",
-                isAir ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                isAir ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-600"
               )}
             >
               <Plane className="w-3 h-3" /> Aéreo
@@ -99,14 +82,14 @@ export function TravelSegmentCard({
               onClick={() => onUpdate(segment.id, 'transportMode', 'rodoviario')}
               className={cn(
                 "px-4 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all uppercase flex items-center gap-2",
-                !isAir ? "bg-white text-emerald-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                !isAir ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-600"
               )}
             >
               <Bus className="w-3 h-3" /> Ônibus
             </button>
           </div>
 
-          {totalSegments > 1 && (
+          {canRemove && (
             <button 
               type="button"
               onClick={() => onRemove(segment.id)}
@@ -177,12 +160,12 @@ export function TravelSegmentCard({
 
         {/* Data e Hora de Partida */}
         <div className="space-y-2.5">
-          <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest pl-1 flex items-center gap-2">
-            <Calendar className="w-3 h-3 text-blue-500" /> Data e Hora de Partida
+          <label className={cn("text-[10px] font-black uppercase tracking-widest pl-1 flex items-center gap-2", theme.titleClass)}>
+            <Calendar className={cn("w-3 h-3", theme.accentTextClass)} /> {theme.dateLabel}
           </label>
-          <input 
+          <input
             type="datetime-local"
-            className={cn(INPUT_CLASS, "bg-blue-50/20 border-blue-100", hasErrors && !segment.departureDateTime && ERROR_INPUT_CLASS)} 
+            className={cn(INPUT_CLASS, theme.inputAccentClass, hasErrors && !segment.departureDateTime && ERROR_INPUT_CLASS)}
             value={segment.departureDateTime || ''}
             onChange={(e) => onUpdate(segment.id, 'departureDateTime', e.target.value)}
           />

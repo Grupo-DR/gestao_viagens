@@ -121,6 +121,8 @@ export type EmployeeInfo = InternalPassenger;
 
 export type TransportMode = 'aereo' | 'rodoviario';
 export type TravelDirection = 'ida' | 'volta';
+/** Tipo de viagem declarado pelo solicitante — define se o bloco de Volta é obrigatório */
+export type TripType = 'ida_volta' | 'somente_ida';
 
 export interface TravelSegment {
   id: string;
@@ -145,8 +147,14 @@ export interface TravelInfo {
   reason: TravelReason;
   /** Definido manualmente pelo solicitante no ato do pedido */
   isUrgent?: boolean;
+  /** Tipo de viagem declarado no formulário (ausente em registros anteriores) */
+  tripType?: TripType;
   /** Lista de trechos ordenada — Fonte de verdade v3 */
   segments?: TravelSegment[];
+  /** Alertas não bloqueantes do itinerário registrados no envio */
+  itineraryWarnings?: string[];
+  /** Justificativa do solicitante para os alertas do itinerário */
+  itineraryJustification?: string;
   /** Snapshot dos trechos originais no momento da compra (para análise Orçado vs Realizado) */
   requestedSegments?: TravelSegment[];
   
@@ -305,7 +313,10 @@ export interface TravelRequestFormData {
 
   // ── Dados de Viagem — Itinerário v3 ──────────
   reason: TravelReason;
+  tripType: TripType;
   segments: TravelSegment[];
+  /** Justificativa para alertas do itinerário (obrigatória quando houver alertas) */
+  itineraryJustification: string;
   
   // Campos derivados para compatibilidade legada
   origin: string;

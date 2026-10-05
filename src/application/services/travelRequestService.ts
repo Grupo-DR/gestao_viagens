@@ -29,6 +29,16 @@ import type {
 } from '../../domain/types';
 import { PolicyDecision } from '../../domain/policy/types';
 import { suggestNextStatus } from '../use-cases/evaluateTravelPolicy';
+import {
+  deriveTravelSummaryFromSegments,
+  inferTripType,
+  normalizeItineraryOrder,
+} from '../../domain/travelSegment.helpers';
+import {
+  validateItineraryForForm,
+  isItineraryJustificationValid,
+  MIN_ITINERARY_JUSTIFICATION_LENGTH,
+} from '../../domain/itinerary.validation';
 
 const COLLECTION = 'travelRequests';
 
@@ -85,6 +95,37 @@ function buildEmployeePayload(formData: TravelRequestFormData): Passenger {
     functionName: formData.functionName,
     cpf: formData.cpf || null,
     birthDate: formData.birthDate || null,
+  };
+}
+
+/**
+ * Normaliza o itinerário e deriva os campos-resumo a partir dos trechos.
+ * No envio (não rascunho), bloqueia itinerários inválidos e alertas sem justificativa.
+ */
+function buildItineraryPayload(formData: TravelRequestFormData, asDraft: boolean) {
+  const segments = normalizeItineraryOrder(Array.isArray(formData.segments) ? formData.segments : []);
+  const tripType = formData.tripType ?? inferTripType(segments);
+  const validation = validateItineraryForForm({ ...formData, segments, tripType });
+
+  if (!asDraft) {
+    if (!validation.isValid) {
+      const issues = validation.blocking.map((issue) => `• ${issue.message}`).join('\n');
+      throw new Error(`Itinerário inválido:\n${issues}`);
+    }
+    if (!isItineraryJustificationValid(validation, formData.itineraryJustification)) {
+      throw new Error(
+        `Justifique os alertas do itinerário (mínimo de ${MIN_ITINERARY_JUSTIFICATION_LENGTH} caracteres).`
+      );
+    }
+  }
+
+  const hasWarnings = validation.warnings.length > 0;
+  return {
+    segments,
+    tripType,
+    summary: deriveTravelSummaryFromSegments(segments),
+    itineraryWarnings: validation.warnings.map((issue) => issue.message),
+    itineraryJustification: hasWarnings ? formData.itineraryJustification?.trim() || null : null,
   };
 }
 
@@ -145,7 +186,8 @@ export async function createTravelRequest(
   asDraft: boolean,
   policyDecisions?: PolicyDecision[]
 ): Promise<string> {
-  const status = asDraft 
+  const itinerary = buildItineraryPayload(formData, asDraft);
+  const status = asDraft
     ? RequestStatus.RASCUNHO 
     : (policyDecisions?.[0] ? suggestNextStatus(policyDecisions[0], formData.reason) : getInitialStatus(formData.reason, false, formData.passengerType));
   const now = new Date().toISOString();
@@ -167,12 +209,15 @@ export async function createTravelRequest(
     employee: buildEmployeePayload(formData),
     travel: {
       reason: formData.reason,
-      segments: Array.isArray(formData.segments) ? formData.segments : [],
-      origin: formData.origin,
-      destination: formData.destination,
-      departureDateTime: formData.departureDateTime,
-      returnDateTime: formData.returnDateTime || null,
-      baggageRequired: formData.baggageRequired,
+      tripType: itinerary.tripType,
+      segments: itinerary.segments,
+      origin: itinerary.summary.origin,
+      destination: itinerary.summary.destination,
+      departureDateTime: itinerary.summary.departureDateTime,
+      returnDateTime: itinerary.summary.returnDateTime || null,
+      baggageRequired: itinerary.summary.baggageRequired,
+      itineraryWarnings: itinerary.itineraryWarnings,
+      itineraryJustification: itinerary.itineraryJustification,
       costCenter: formData.costCenter,
       projectCode: formData.projectCode || null,
       managerName: formData.managerName || null,
@@ -235,6 +280,7 @@ export async function updateTravelRequest(
   asDraft: boolean,
   policyDecisions?: PolicyDecision[]
 ): Promise<void> {
+  const itinerary = buildItineraryPayload(formData, asDraft);
   const status = asDraft
     ? RequestStatus.RASCUNHO
     : (policyDecisions?.[0] ? suggestNextStatus(policyDecisions[0], formData.reason) : getInitialStatus(formData.reason, false, formData.passengerType));
@@ -249,12 +295,15 @@ export async function updateTravelRequest(
     status,
     employee: buildEmployeePayload(formData),
     'travel.reason': formData.reason,
-    'travel.segments': Array.isArray(formData.segments) ? formData.segments : [],
-    'travel.origin': formData.origin,
-    'travel.destination': formData.destination,
-    'travel.departureDateTime': formData.departureDateTime,
-    'travel.returnDateTime': formData.returnDateTime || null,
-    'travel.baggageRequired': formData.baggageRequired,
+    'travel.tripType': itinerary.tripType,
+    'travel.segments': itinerary.segments,
+    'travel.origin': itinerary.summary.origin,
+    'travel.destination': itinerary.summary.destination,
+    'travel.departureDateTime': itinerary.summary.departureDateTime,
+    'travel.returnDateTime': itinerary.summary.returnDateTime || null,
+    'travel.baggageRequired': itinerary.summary.baggageRequired,
+    'travel.itineraryWarnings': itinerary.itineraryWarnings,
+    'travel.itineraryJustification': itinerary.itineraryJustification,
     'travel.costCenter': formData.costCenter,
     'travel.projectCode': formData.projectCode || null,
     'travel.managerName': formData.managerName || null,

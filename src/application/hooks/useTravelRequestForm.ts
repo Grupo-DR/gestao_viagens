@@ -12,7 +12,12 @@ import {
   updateTravelRequest,
 } from '../services/travelRequestService';
 import { PolicyDecision } from '../../domain/policy/types';
-import { normalizeSegmentsFromTravel } from '../../domain/travelSegment.helpers';
+import {
+  createEmptySegment,
+  inferTripType,
+  normalizeItineraryOrder,
+  normalizeSegmentsFromTravel,
+} from '../../domain/travelSegment.helpers';
 
 // ──────────────────────────────────────────────
 // Estado inicial do formulário
@@ -33,7 +38,9 @@ function buildInitialState(editing: TravelRequest | null): TravelRequestFormData
       externalContactEmail: '',
       externalContactPhone: '',
       reason: TravelReason.VISITA_TECNICA,
-      segments: [],
+      tripType: 'ida_volta',
+      segments: [createEmptySegment(1, 'ida')],
+      itineraryJustification: '',
       origin: '',
       destination: '',
       departureDateTime: '',
@@ -50,7 +57,8 @@ function buildInitialState(editing: TravelRequest | null): TravelRequestFormData
   }
 
   const isExternal = editing.employee.passengerType === 'external';
-  
+  const segments = normalizeItineraryOrder(editing.travel.segments ?? normalizeSegmentsFromTravel(editing.travel));
+
   // Preenche com dados do modelo v3
   return {
     passengerType: editing.employee.passengerType || 'internal',
@@ -65,7 +73,9 @@ function buildInitialState(editing: TravelRequest | null): TravelRequestFormData
     externalContactEmail: isExternal && 'contactEmail' in editing.employee ? editing.employee.contactEmail ?? '' : '',
     externalContactPhone: isExternal && 'contactPhone' in editing.employee ? editing.employee.contactPhone ?? '' : '',
     reason: editing.travel.reason ?? TravelReason.VISITA_TECNICA,
-    segments: editing.travel.segments ?? normalizeSegmentsFromTravel(editing.travel),
+    tripType: editing.travel.tripType ?? inferTripType(segments),
+    segments,
+    itineraryJustification: editing.travel.itineraryJustification ?? '',
     origin: editing.travel.origin ?? '',
     destination: editing.travel.destination ?? '',
     departureDateTime: editing.travel.departureDateTime ?? '',
